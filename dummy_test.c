@@ -23,7 +23,10 @@ int main() {
   c_float_t phi2 = exp(-t2);
 
   c_float_t* aa_freqs = (c_float_t*) calloc(A, sizeof(c_float_t));
-  memset(aa_freqs, 1e-3, sizeof(c_float_t)*A);
+
+  for(int a = 0; a < A; a++) {
+    aa_freqs[a] = 1e-5;
+  }
   aa_freqs[1] += 0.5;
   aa_freqs[2] += 0.5;
 
@@ -32,12 +35,12 @@ int main() {
     norm += aa_freqs[a];
   }
   for(int a = 0; a < A; a++) {
-    aa_freqs[a] /= norm;
+    aa_freqs[a] = log(aa_freqs[a] / norm);
   }
 
   c_float_t* x = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
-  for(int idx; idx < N_COL*A + A*A; idx++) {
-    x[idx] = (c_float_t)rand() / (c_float_t)RAND_MAX  *2;
+  for(int idx = 0; idx < N_COL*A + A*A; idx++) {
+    x[idx] = (c_float_t)rand() / (c_float_t)RAND_MAX;
   }
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
 
