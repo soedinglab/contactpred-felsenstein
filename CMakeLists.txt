@@ -6,6 +6,10 @@ include(FindASan)
 set(CMAKE_C_STANDARD 99)
 
 add_library(felsenstein felsenstein.c felsenstein.h)
-add_executable(felsenstein_test felsenstein.h felsenstein.c dummy_test.c)
+add_library(felsenstein_log felsenstein_logspace.c felsenstein.h)
 
-add_executable(felsenstein_log_test felsenstein.h felsenstein_logspace.c dummy_test.c)
+add_executable(felsenstein_test felsenstein.h felsenstein.c felsenstein_test.c)
+target_link_libraries(felsenstein_test m)
+
+add_executable(felsenstein_log_test felsenstein.h felsenstein_logspace.c felsenstein_logtest.c)
+target_link_libraries(felsenstein_log_test m)

@@ -259,7 +259,10 @@ void deinitialize_node(Node* node) {
   NodePrecomputation* data = node->data;
   free(data->Ln_ab);
   free(data->dv_Ln_ab);
+  free(data->dv_Ln_ab_signs);
   free(data->dw_Ln_ab);
+  free(data->dw_Ln_ab_signs);
+  free(node->data);
 }
 
 void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, int8_t* dv_L_ab_signs, c_float_t* dw_L_ab, int8_t* dw_L_ab_signs, int a, int b){
@@ -330,15 +333,15 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
   }
   initialize_node(node);
 
-  c_float_t* dv_left_Lab = (c_float_t *) malloc(sizeof(c_float_t)*N_COL*A);
-  int8_t* dv_left_Lab_signs = (int8_t*) malloc(sizeof(int8_t)*N_COL*A);
-  c_float_t* dv_right_Lab = (c_float_t *) malloc(sizeof(c_float_t)*N_COL*A);
-  int8_t* dv_right_Lab_signs = (int8_t*) malloc(sizeof(c_float_t)*N_COL*A);
+  c_float_t dv_left_Lab[N_COL*A];
+  int8_t dv_left_Lab_signs[N_COL*A];
+  c_float_t dv_right_Lab[N_COL*A];
+  int8_t dv_right_Lab_signs[N_COL*A];
 
-  c_float_t* dw_left_Lab = (c_float_t *) malloc(sizeof(c_float_t)*AA);
-  int8_t* dw_left_Lab_signs = (int8_t*) malloc(sizeof(int8_t)*AA);
-  c_float_t* dw_right_Lab = (c_float_t *) malloc(sizeof(c_float_t)*AA);
-  int8_t* dw_right_Lab_signs = (int8_t*) malloc(sizeof(int8_t)*AA);
+  c_float_t dw_left_Lab[AA];
+  int8_t dw_left_Lab_signs[AA];
+  c_float_t dw_right_Lab[AA];
+  int8_t dw_right_Lab_signs[AA];
 
 
   // precalculate aggregated values
@@ -450,6 +453,7 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
       grad[N_COL*A + c*A + d] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
     }
   }
+  deinitialize_node(root);
   return fx;
 }
 

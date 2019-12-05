@@ -166,6 +166,7 @@ void deinitialize_node(Node* node) {
   free(data->Ln_ab);
   free(data->dv_Ln_ab);
   free(data->dw_Ln_ab);
+  free(data);
 }
 
 void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, c_float_t* dw_L_ab, int a, int b) {
@@ -210,11 +211,11 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
   }
   initialize_node(node);
 
-  c_float_t* dv_left_Lab = (c_float_t *) malloc(sizeof(c_float_t *)*N_COL*A);
-  c_float_t* dv_right_Lab = (c_float_t *) malloc(sizeof(c_float_t *)*N_COL*A);
+  c_float_t dv_left_Lab[N_COL*A];
+  c_float_t dv_right_Lab[N_COL*A];
 
-  c_float_t* dw_left_Lab = (c_float_t *) malloc(sizeof(c_float_t *)*AA);
-  c_float_t* dw_right_Lab = (c_float_t *) malloc(sizeof(c_float_t *)*AA);
+  c_float_t dw_left_Lab[AA];
+  c_float_t dw_right_Lab[AA];
 
 
   // precalculate aggregated values
@@ -310,6 +311,7 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
       }
     }
   }
+  deinitialize_node(root);
   return fx;
 }
 

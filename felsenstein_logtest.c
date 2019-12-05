@@ -113,12 +113,17 @@ int main() {
 
   deinitialize_buffer(buffer->left);
   deinitialize_buffer(buffer->right);
+  free(buffer->left);
+  free(buffer->right);
   free(buffer);
 
   deinitialize_constants(consts);
   free(consts->single_aa_frequencies);
   free(consts->msa);
+  free(consts->phylo_tree);
+  free(consts);
+
   free(left_node);
   free(right_node);
-  free(consts->phylo_tree);
+
 }
