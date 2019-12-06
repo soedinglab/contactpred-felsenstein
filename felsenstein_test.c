@@ -2,24 +2,25 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
-#include <string.h>
 #include "felsenstein.h"
 
 int main() {
   int i = 0;
   int j = 1;
 
-  int N = 2;
+  int N = 4;
   int L = 5;
   uint8_t* msa = (uint8_t*) malloc(sizeof(u_int8_t)*N*L);
   for(int i = 0; i < L; i++) {
     msa[0*L + i] = 1;
-    msa[1*L + i] = 2;
+    msa[1*L + i] = 1;
+    msa[2*L + i] = 2;
+    msa[3*L + i] = 2;
   }
 
-  c_float_t t1 = 10;
+  c_float_t t1 = 0.5;
   c_float_t phi1 = exp(-t1);
-  c_float_t t2 = 15;
+  c_float_t t2 = 0.5;
   c_float_t phi2 = exp(-t2);
 
   c_float_t* aa_freqs = (c_float_t*) calloc(A, sizeof(c_float_t));
@@ -44,20 +45,46 @@ int main() {
   }
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
 
-  Node* left_node = malloc(sizeof(Node));
-  left_node->seq_id = 0;
-  left_node->left = NULL;
-  left_node->right = NULL;
-  Node* right_node = malloc(sizeof(Node));
-  right_node->left = NULL;
-  right_node->right = NULL;
-  right_node->seq_id = 1;
+  Node ll_node;
+  ll_node.seq_id = 0;
+  ll_node.left = NULL;
+  ll_node.right = NULL;
+
+  Node lr_node;
+  lr_node.seq_id = 1;
+  lr_node.left = NULL;
+  lr_node.right = NULL;
+
+  Node rl_node;
+  rl_node.seq_id = 2;
+  rl_node.left = NULL;
+  rl_node.right = NULL;
+
+  Node rr_node;
+  rr_node.seq_id = 3;
+  rr_node.left = NULL;
+  rr_node.right = NULL;
+
+  Node left_node;
+  left_node.left = &ll_node;
+  left_node.right = &lr_node;
+  left_node.phi_left = phi1;
+  left_node.phi_right = phi2;
+  left_node.seq_id = -2;
+
+  Node right_node;
+  right_node.left = &rl_node;
+  right_node.right = &rr_node;
+  right_node.phi_left = phi1;
+  right_node.phi_right = phi2;
+  right_node.seq_id = -3;
 
   Node* root = malloc(sizeof(Node));
   root->phi_left = phi1;
   root->phi_right = phi2;
-  root->left = left_node;
-  root->right = right_node;
+  root->left = &left_node;
+  root->right = &right_node;
+  root->seq_id = -1;
 
   Constants* consts = malloc(sizeof(Constants));
   consts->single_aa_frequencies = aa_freqs;
@@ -74,6 +101,8 @@ int main() {
   buffer->right = malloc(sizeof(NodeBuffer));
   initialize_buffer(buffer->right);
 
+  c_float_t fx = calculate_fx_grad(x, grad, consts, buffer);
+  printf("fx= %e\n", log(fx));
 
   c_float_t epsilon = 1e-9;
   int pos = 0;
@@ -122,8 +151,4 @@ int main() {
   free(consts->msa);
   free(consts->phylo_tree);
   free(consts);
-
-  free(left_node);
-  free(right_node);
-
 }

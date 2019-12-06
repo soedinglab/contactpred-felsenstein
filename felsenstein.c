@@ -211,11 +211,11 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
   }
   initialize_node(node);
 
-  c_float_t dv_left_Lab[N_COL*A];
-  c_float_t dv_right_Lab[N_COL*A];
+  c_float_t dv_left_Lab[N_COL*A] = {0};
+  c_float_t dv_right_Lab[N_COL*A] = {0};
 
-  c_float_t dw_left_Lab[AA];
-  c_float_t dw_right_Lab[AA];
+  c_float_t dw_left_Lab[AA] = {0};
+  c_float_t dw_right_Lab[AA] = {0};
 
 
   // precalculate aggregated values
@@ -237,14 +237,10 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 
       if (node->left != NULL) {
         left_Lab = 0;
-        memset(dv_left_Lab, c_f0, N_COL*A);
-        memset(dw_left_Lab, c_f0, AA);
         compute_Ln_branch(node->left, node->phi_left, buf->left, consts, &left_Lab, dv_left_Lab, dw_left_Lab, a, b);
       }
       if (node->right != NULL) {
         right_Lab = 0;
-        memset(dv_right_Lab, c_f0, N_COL * A);
-        memset(dw_right_Lab, c_f0, AA);
         compute_Ln_branch(node->right, node->phi_right, buf->right, consts, &right_Lab, dv_right_Lab, dw_right_Lab, a,
                           b);
       }
@@ -343,34 +339,34 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
 
   // p_ab related precomputations
   c_float_t total_sum = 0;
-  c_float_t* p_ab = consts->p_ab;
-  memset(p_ab, c_f0, sizeof(c_float_t)*AA);
-  for(int a = 0; a < A; a++) {
-    for(int b = 0; b < A; b++) {
-      p_ab[a*A + b] = exp(v[0*A + a] + v[1*A + b] + w[a*A + b] );
-      total_sum += p_ab[a*A + b];
+  c_float_t *p_ab = consts->p_ab;
+  memset(p_ab, c_f0, sizeof(c_float_t) * AA);
+  for (int a = 0; a < A; a++) {
+    for (int b = 0; b < A; b++) {
+      p_ab[a * A + b] = exp(v[0 * A + a] + v[1 * A + b] + w[a * A + b]);
+      total_sum += p_ab[a * A + b];
     }
   }
-  for(int ab = 0; ab < A*A; ab++) {
+  for (int ab = 0; ab < A * A; ab++) {
     p_ab[ab] /= total_sum;
   }
 
   c_float_t pi_a[A] = {0};
-  for(int a = 0; a < A; a++) {
-    for(int b = 0; b < A; b++) {
-      pi_a[a] += p_ab[a*A + b];
+  for (int a = 0; a < A; a++) {
+    for (int b = 0; b < A; b++) {
+      pi_a[a] += p_ab[a * A + b];
     }
   }
   c_float_t pj_b[A] = {0};
-  for(int b = 0; b < A; b++) {
+  for (int b = 0; b < A; b++) {
     for (int a = 0; a < A; a++) {
       pj_b[b] += p_ab[a * A + b];
     }
   }
 
-  c_float_t* dv_p_ab = consts->dv_p_ab;
-  memset(dv_p_ab, c_f0, sizeof(c_float_t)*N_COL*AAA);
-  for(int c = 0; c < A; c++) {
+  c_float_t *dv_p_ab = consts->dv_p_ab;
+  memset(dv_p_ab, c_f0, sizeof(c_float_t) * N_COL * AAA);
+  for (int c = 0; c < A; c++) {
     for (int a = 0; a < A; a++) {
       for (int b = 0; b < A; b++) {
         int ind = 0 * AAA + c * AA + a * A + b;
@@ -380,7 +376,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       }
     }
   }
-  for(int d = 0; d < A; d++) {
+  for (int d = 0; d < A; d++) {
     for (int a = 0; a < A; a++) {
       for (int b = 0; b < A; b++) {
         int ind = 1 * AAA + d * AA + a * A + b;
@@ -391,101 +387,102 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
-  c_float_t* dw_p_ab = consts->dw_p_ab;
-  memset(dw_p_ab, c_f0, sizeof(c_float_t)*AAAA);
-  for(int c = 0; c < A; c++) {
-    for(int d = 0; d < A; d++) {
-      for(int a = 0; a < A; a++) {
-        for(int b = 0; b < A; b++) {
-          int ind = c*AAA + d*AA + a*A + b;
+
+  c_float_t *dw_p_ab = consts->dw_p_ab;
+  memset(dw_p_ab, c_f0, sizeof(c_float_t) * AAAA);
+  for (int c = 0; c < A; c++) {
+    for (int d = 0; d < A; d++) {
+      for (int a = 0; a < A; a++) {
+        for (int b = 0; b < A; b++) {
+          int ind = c * AAA + d * AA + a * A + b;
           dw_p_ab[ind] += (int) (a == c && b == d);
-          dw_p_ab[ind] -= p_ab[c*A + d];
-          dw_p_ab[ind] *= p_ab[a*A + b];
+          dw_p_ab[ind] -= p_ab[c * A + d];
+          dw_p_ab[ind] *= p_ab[a * A + b];
         }
       }
     }
   }
 
   // p(a,.|.,b)
-  c_float_t* p_ij_cond = consts->p_ij_cond;
-  memset(p_ij_cond, c_f0, sizeof(c_float_t)*AA);
-  for(int b = 0; b < A; b++) {
+  c_float_t *p_ij_cond = consts->p_ij_cond;
+  memset(p_ij_cond, c_f0, sizeof(c_float_t) * AA);
+  for (int b = 0; b < A; b++) {
     c_float_t ij_cond_sum = 0;
-    for(int a = 0; a < A; a++) {
-      c_float_t prob = exp(v[0*A+a] + w[a*A + b]);
-      p_ij_cond[a*A + b] = prob;
+    for (int a = 0; a < A; a++) {
+      c_float_t prob = exp(v[0 * A + a] + w[a * A + b]);
+      p_ij_cond[a * A + b] = prob;
       ij_cond_sum += prob;
     }
-    for(int a = 0; a < A; a++) {
-      p_ij_cond[a*A + b] /= ij_cond_sum;
+    for (int a = 0; a < A; a++) {
+      p_ij_cond[a * A + b] /= ij_cond_sum;
     }
   }
 
-  c_float_t* dv_p_ij_cond = consts->dv_p_ij_cond;
-  memset(dv_p_ij_cond, c_f0, sizeof(c_float_t)*N_COL*AAA);
-  for(int c = 0; c < A; c++) {
-    for(int a = 0; a < A; a++) {
-      for(int b = 0; b < A; b++) {
-        int ind = 0*AAA + c*AA + b*A + a;
+  c_float_t *dv_p_ij_cond = consts->dv_p_ij_cond;
+  memset(dv_p_ij_cond, c_f0, sizeof(c_float_t) * N_COL * AAA);
+  for (int c = 0; c < A; c++) {
+    for (int a = 0; a < A; a++) {
+      for (int b = 0; b < A; b++) {
+        int ind = 0 * AAA + c * AA + a * A + b;
         dv_p_ij_cond[ind] += (int) (a == c);
-        dv_p_ij_cond[ind] -= p_ij_cond[c*A + b];
-        dv_p_ij_cond[ind] *= p_ij_cond[a*A + b];
+        dv_p_ij_cond[ind] -= p_ij_cond[c * A + b];
+        dv_p_ij_cond[ind] *= p_ij_cond[a * A + b];
       }
     }
   }
 
-  c_float_t* dw_p_ij_cond = consts->dw_p_ij_cond;
-  memset(dw_p_ij_cond, c_f0, sizeof(c_float_t)*AAAA);
-  for(int c = 0; c < A; c++) {
-    for(int d = 0; d < A; d++) {
-      for(int a = 0; a < A; a++) {
+  c_float_t *dw_p_ij_cond = consts->dw_p_ij_cond;
+  memset(dw_p_ij_cond, c_f0, sizeof(c_float_t) * AAAA);
+  for (int c = 0; c < A; c++) {
+    for (int d = 0; d < A; d++) {
+      for (int a = 0; a < A; a++) {
         int b = d;
-        int ind = c*AAA + d*AA + c*A + b;
+        int ind = c * AAA + d * AA + a * A + b;
         dw_p_ij_cond[ind] += (int) (a == c);
-        dw_p_ij_cond[ind] -= p_ij_cond[c*A + d];
-        dw_p_ij_cond[ind] *= p_ij_cond[a*A + b];
+        dw_p_ij_cond[ind] -= p_ij_cond[c * A + d];
+        dw_p_ij_cond[ind] *= p_ij_cond[a * A + b];
       }
     }
   }
 
   // p(.,b|a,.)
-  c_float_t* p_ji_cond = consts->p_ji_cond;
-  memset(p_ji_cond, c_f0, sizeof(c_float_t)*AA);
-  for(int a = 0; a < A; a++) {
+  c_float_t *p_ji_cond = consts->p_ji_cond;
+  memset(p_ji_cond, c_f0, sizeof(c_float_t) * AA);
+  for (int a = 0; a < A; a++) {
     c_float_t ji_cond_sum = 0;
-    for(int b = 0; b < A; b++) {
-      c_float_t prob = exp(v[1*A+b] + w[a*A + b]);
-      p_ji_cond[b*A + a] = prob;
+    for (int b = 0; b < A; b++) {
+      c_float_t prob = exp(v[1 * A + b] + w[a * A + b]);
+      p_ji_cond[b * A + a] = prob;
       ji_cond_sum += prob;
     }
-    for(int b = 0; b < A; b++) {
-      p_ji_cond[b*A + a] /= ji_cond_sum;
+    for (int b = 0; b < A; b++) {
+      p_ji_cond[b * A + a] /= ji_cond_sum;
     }
   }
 
-  c_float_t* dv_p_ji_cond = consts->dv_p_ji_cond;
-  memset(dv_p_ji_cond, c_f0, sizeof(c_float_t)*N_COL*AAA);
-  for(int d = 0; d < A; d++) {
-    for(int a = 0; a < A; a++) {
-      for(int b = 0; b < A; b++) {
-        int ind = 1*AAA + d*AA + b*A + a;
+  c_float_t *dv_p_ji_cond = consts->dv_p_ji_cond;
+  memset(dv_p_ji_cond, c_f0, sizeof(c_float_t) * N_COL * AAA);
+  for (int d = 0; d < A; d++) {
+    for (int a = 0; a < A; a++) {
+      for (int b = 0; b < A; b++) {
+        int ind = 1 * AAA + d * AA + b * A + a;
         dv_p_ji_cond[ind] += (int) (b == d);
-        dv_p_ji_cond[ind] -= p_ji_cond[d*A + a];
-        dv_p_ji_cond[ind] *= p_ji_cond[b*A + a];
+        dv_p_ji_cond[ind] -= p_ji_cond[d * A + a];
+        dv_p_ji_cond[ind] *= p_ji_cond[b * A + a];
       }
     }
   }
 
-  c_float_t* dw_p_ji_cond = consts->dw_p_ij_cond;
-  memset(dw_p_ji_cond, c_f0, sizeof(c_float_t)*AAAA);
-  for(int c = 0; c < A; c++) {
-    for(int d = 0; d < A; d++) {
-      for(int b = 0; b < A; b++) {
+  c_float_t *dw_p_ji_cond = consts->dw_p_ji_cond;
+  memset(dw_p_ji_cond, c_f0, sizeof(c_float_t) * AAAA);
+  for (int c = 0; c < A; c++) {
+    for (int d = 0; d < A; d++) {
+      for (int b = 0; b < A; b++) {
         int a = c;
-        int ind = c*AAA + d*AA + b*A + a;
+        int ind = c * AAA + d * AA + b * A + a;
         dw_p_ji_cond[ind] += (int) (b == d);
-        dw_p_ji_cond[ind] -= p_ji_cond[d*A + c];
-        dw_p_ji_cond[ind] *= p_ji_cond[b*A + a];
+        dw_p_ji_cond[ind] -= p_ji_cond[d * A + c];
+        dw_p_ji_cond[ind] *= p_ji_cond[b * A + a];
       }
     }
   }

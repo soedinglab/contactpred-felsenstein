@@ -362,13 +362,13 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
       c_float_t right_Lab = 0;
 
       if (node->left != NULL) {
-        memset(dv_left_Lab, c_f0, N_COL*A);
-        memset(dw_left_Lab, c_f0, AA);
+        memset(dv_left_Lab, c_f0, N_COL*A * sizeof(c_float_t));
+        memset(dw_left_Lab, c_f0, AA * sizeof(c_float_t));
         compute_Ln_branch(node->left, node->phi_left, buf->left, consts, &left_Lab, dv_left_Lab, dv_left_Lab_signs, dw_left_Lab, dw_left_Lab_signs, a, b);
       }
       if (node->right != NULL) {
-        memset(dv_right_Lab, c_f0, N_COL*A);
-        memset(dw_right_Lab, c_f0, AA);
+        memset(dv_right_Lab, c_f0, N_COL*A * sizeof(c_float_t));
+        memset(dw_right_Lab, c_f0, AA * sizeof(c_float_t));
         compute_Ln_branch(node->right, node->phi_right, buf->right, consts, &right_Lab, dv_right_Lab, dv_right_Lab_signs, dw_right_Lab, dw_right_Lab_signs, a,
                           b);
       }
@@ -580,7 +580,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   for (int c = 0; c < A; c++) {
     for (int a = 0; a < A; a++) {
       for (int b = 0; b < A; b++) {
-        int ind = 0 * AAA + c * AA + b * A + a;
+        int ind = 0 * AAA + c * AA + a * A + b;
         dv_p_ij_cond[ind] += (int) (a == c);
         dv_p_ij_cond[ind] -= p_ij_cond[c * A + b];
         dv_p_ij_cond[ind] *= p_ij_cond[a * A + b];
@@ -594,7 +594,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     for (int d = 0; d < A; d++) {
       for (int a = 0; a < A; a++) {
         int b = d;
-        int ind = c * AAA + d * AA + c * A + b;
+        int ind = c * AAA + d * AA + a * A + b;
         dw_p_ij_cond[ind] += (int) (a == c);
         dw_p_ij_cond[ind] -= p_ij_cond[c * A + d];
         dw_p_ij_cond[ind] *= p_ij_cond[a * A + b];
