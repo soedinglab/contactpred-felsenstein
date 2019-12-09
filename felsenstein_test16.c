@@ -2,26 +2,44 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include "felsenstein.h"
 
 int main() {
   int i = 0;
   int j = 1;
 
-  int N = 4;
+  int N = 16;
   int L = 5;
   uint8_t* msa = (uint8_t*) malloc(sizeof(u_int8_t)*N*L);
   for(int i = 0; i < L; i++) {
-    msa[0*L + i] = 1;
-    msa[1*L + i] = 1;
-    msa[2*L + i] = 2;
-    msa[3*L + i] = 2;
+    for(int j = 0; j < N; j++) {
+      if (j < N / 2) {
+        msa[j*L + i] = 1;
+      } else {
+        msa[j*L + i] = 2;
+      }
+    }
   }
 
-  c_float_t t1 = 0.5;
+  c_float_t t1 = 0.2;
   c_float_t phi1 = exp(-t1);
-  c_float_t t2 = 0.5;
+  c_float_t t2 = 0.2;
   c_float_t phi2 = exp(-t2);
+
+  Node* nodes = (Node*) malloc(sizeof(Node)*(2*N - 1));
+  for(int n = 0; n < N - 1; n++) {
+    nodes[n].seq_id = -n - 1;
+    nodes[n].left = nodes + 2*n + 1;
+    nodes[n].right = nodes + 2*n + 2;
+    nodes[n].phi_left = phi1;
+    nodes[n].phi_right = phi2;
+  }
+  for(int n = N - 1; n < 2*N - 1; n++) {
+    nodes[n].left = NULL;
+    nodes[n].right = NULL;
+    nodes[n].seq_id = n - N - 1;
+  }
 
   c_float_t* aa_freqs = (c_float_t*) calloc(A, sizeof(c_float_t));
 
@@ -45,47 +63,8 @@ int main() {
   }
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
 
-  Node ll_node;
-  ll_node.seq_id = 0;
-  ll_node.left = NULL;
-  ll_node.right = NULL;
 
-  Node lr_node;
-  lr_node.seq_id = 1;
-  lr_node.left = NULL;
-  lr_node.right = NULL;
-
-  Node rl_node;
-  rl_node.seq_id = 2;
-  rl_node.left = NULL;
-  rl_node.right = NULL;
-
-  Node rr_node;
-  rr_node.seq_id = 3;
-  rr_node.left = NULL;
-  rr_node.right = NULL;
-
-  Node left_node;
-  left_node.left = &ll_node;
-  left_node.right = &lr_node;
-  left_node.phi_left = phi1;
-  left_node.phi_right = phi2;
-  left_node.seq_id = -2;
-
-  Node right_node;
-  right_node.left = &rl_node;
-  right_node.right = &rr_node;
-  right_node.phi_left = phi1;
-  right_node.phi_right = phi2;
-  right_node.seq_id = -3;
-
-  Node* root = malloc(sizeof(Node));
-  root->phi_left = phi1;
-  root->phi_right = phi2;
-  root->left = &left_node;
-  root->right = &right_node;
-  root->seq_id = -1;
-
+  Node* root = &nodes[0];
   Constants* consts = malloc(sizeof(Constants));
   consts->single_aa_frequencies = aa_freqs;
   consts->phylo_tree = root;
@@ -151,4 +130,5 @@ int main() {
   free(consts->msa);
   free(consts->phylo_tree);
   free(consts);
+  free(nodes);
 }
