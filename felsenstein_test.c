@@ -18,30 +18,31 @@ int main() {
     msa[3*L + i] = 2;
   }
 
-  c_float_t t1 = 0.5;
+  c_float_t t1 = 0.2;
   c_float_t phi1 = exp(-t1);
-  c_float_t t2 = 0.5;
+  c_float_t t2 = 0.2;
   c_float_t phi2 = exp(-t2);
 
   c_float_t* aa_freqs = (c_float_t*) calloc(A, sizeof(c_float_t));
 
-  for(int a = 0; a < A; a++) {
-    aa_freqs[a] = 1e-5;
+  c_float_t aa_counts[A] = {1e-9};
+  for(int a = 0; a < N*L; a++) {
+    aa_counts[msa[a]] += 1;
   }
-  aa_freqs[1] += 0.5;
-  aa_freqs[2] += 0.5;
 
   c_float_t norm = 0;
   for(int a = 0; a < A; a++) {
-    norm += aa_freqs[a];
+    norm += aa_counts[a];
   }
+
   for(int a = 0; a < A; a++) {
-    aa_freqs[a] = aa_freqs[a] / norm;
+    aa_freqs[a] = aa_counts[a] / norm;
   }
 
   c_float_t* x = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
   for(int idx = 0; idx < N_COL*A + A*A; idx++) {
     x[idx] = (c_float_t)rand() / (c_float_t)RAND_MAX;
+    x[idx] = 0;
   }
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
 
