@@ -11,7 +11,7 @@ def create_parser():
     parser.add_argument('--col2', type=int, default=1)
     parser.add_argument('v_out')
     parser.add_argument('w_out')
-    parser.add_argument('branch_length', type=float, default=0.5)
+    parser.add_argument('--branch_length', type=float, default=0.5)
     return parser
 
 
