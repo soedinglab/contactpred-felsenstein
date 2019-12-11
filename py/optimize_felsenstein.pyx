@@ -121,13 +121,13 @@ cdef class ExtraArguments:
         free(self.consts.single_aa_frequencies)
     
     
-def optimize_felsenstein(msa, i, j, tree):
+def optimize_felsenstein(msa, i, j, tree, lambda_w=10):
     A = 20
     N, L = msa.shape
     np.random.seed(42)
     x0 = np.random.rand(2*A + A*A)
     
-    extra_args = ExtraArguments(msa, i, j, 10, tree)
+    extra_args = ExtraArguments(msa, i, j, lambda_w, tree)
     x_opt, fx_opt, info = fmin_l_bfgs_b(felsenstein_fx_grad, x0, args=(extra_args,), factr=100, pgtol=1e-5)
     #x_opt, fx_opt, info = fmin_l_bfgs_b(felsenstein_fx_grad, x0, args=(extra_args,))
     info['fx_opt'] = fx_opt
