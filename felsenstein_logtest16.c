@@ -77,9 +77,9 @@ int main() {
 
   Buffer* buffer = malloc(sizeof(Buffer));
   buffer->left = malloc(sizeof(NodeBuffer));
-  initialize_buffer(buffer->left);
+  initialize_buffer(buffer->left, consts);
   buffer->right = malloc(sizeof(NodeBuffer));
-  initialize_buffer(buffer->right);
+  initialize_buffer(buffer->right, consts);
 
   c_float_t fx = calculate_fx_grad(x, grad, consts, buffer);
   printf("fx= %e\n", fx);

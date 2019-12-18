@@ -13,11 +13,11 @@ void initialize_leaf(Node* leaf, Constants* consts) {
   int a = msa[leaf->seq_id * L + i];
   int b = msa[leaf->seq_id * L + j];
 
-  initialize_node(leaf);
+  initialize_node(leaf, consts);
   leaf->data->Ln_ab[a*A + b] = 1;
 }
 
-void initialize_buffer(NodeBuffer* buffer) {
+void initialize_buffer(NodeBuffer* buffer, Constants* consts) {
   buffer->Ln_ia = (c_float_t*) malloc(sizeof(c_float_t)*A);
   buffer->Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*A);
 
@@ -153,7 +153,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
 
 }
 
-void initialize_node(Node* node) {
+void initialize_node(Node* node, Constants* consts) {
   NodePrecomputation* data = malloc(sizeof(NodePrecomputation));
   data->Ln_ab = (c_float_t*) calloc(sizeof(c_float_t), AA);
   data->dv_Ln_ab = (c_float_t*) calloc(sizeof(c_float_t), N_COL*AAA);
@@ -209,7 +209,7 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
     recurse_tree(node->left, consts, buf);
     recurse_tree(node->right, consts, buf);
   }
-  initialize_node(node);
+  initialize_node(node, consts);
 
   c_float_t dv_left_Lab[N_COL*A] = {0};
   c_float_t dv_right_Lab[N_COL*A] = {0};

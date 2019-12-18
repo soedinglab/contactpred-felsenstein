@@ -13,23 +13,23 @@ void initialize_leaf(Node* leaf, Constants* consts) {
   int a = msa[leaf->seq_id * L + i];
   int b = msa[leaf->seq_id * L + j];
 
-  initialize_node(leaf);
+  initialize_node(leaf, consts);
   for(int ab = 0; ab < AA; ab++) {
-    leaf->data->Ln_ab[ab] = -50;
+    leaf->data->Ln_ab[ab] = -2500;
   }
   leaf->data->Ln_ab[a*A + b] = 0;
   memset(leaf->data->dv_Ln_ab, 0, N_COL*AAA);
   for(int i = 0; i < N_COL*AAA; i++) {
-    leaf->data->dv_Ln_ab[i] = -50;
+    leaf->data->dv_Ln_ab[i] = -2500;
   }
   for(int i = 0; i < AAAA; i++) {
-    leaf->data->dw_Ln_ab[i] = -50;
+    leaf->data->dw_Ln_ab[i] = -2500;
   }
   memset(leaf->data->dv_Ln_ab_signs, 1, N_COL*AAA);
   memset(leaf->data->dw_Ln_ab_signs, 1, AAAA);
 }
 
-void initialize_buffer(NodeBuffer* buffer) {
+void initialize_buffer(NodeBuffer* buffer, Constants* consts) {
   buffer->Ln_ia = (c_float_t*) malloc(sizeof(c_float_t)*A);
   buffer->Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*A);
 
@@ -245,7 +245,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
 
 }
 
-void initialize_node(Node* node) {
+void initialize_node(Node* node, Constants* consts) {
   NodePrecomputation* data = malloc(sizeof(NodePrecomputation));
   data->Ln_ab = (c_float_t*) malloc(sizeof(c_float_t)*AA);
   data->dv_Ln_ab = (c_float_t*) malloc(sizeof(c_float_t)*N_COL*AAA);
@@ -331,7 +331,7 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
     recurse_tree(node->left, consts, buf);
     recurse_tree(node->right, consts, buf);
   }
-  initialize_node(node);
+  initialize_node(node, consts);
 
   c_float_t dv_left_Lab[N_COL*A];
   int8_t dv_left_Lab_signs[N_COL*A];

@@ -248,12 +248,18 @@ typedef struct Constants {
 
   Node* phylo_tree;
   uint8_t* msa;
+
+  int A_a;
+  int A_b;
+  int A_a_p_A_b;
+  int AA_ab;
+
   int i;
   int j;
 
 } Constants;
 
-void initialize_node(Node* node);
+void initialize_node(Node* node, Constants* consts);
 void deinitialize_node(Node* node);
 void initialize_leaf(Node* leaf, Constants* consts);
 
@@ -261,7 +267,7 @@ void initialize_constants(Constants* consts);
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w);
 void deinitialize_constants(Constants* consts);
 
-void initialize_buffer(NodeBuffer*);
+void initialize_buffer(NodeBuffer*, Constants* consts);
 void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* consts);
 void deinitialize_buffer(NodeBuffer*);
 
