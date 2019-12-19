@@ -19,7 +19,7 @@ int main() {
     msa[3*L + i] = 1;
   }
 
-  int A_a = 10;
+  int A_a = 3;
   int A_b = 3;
   int A_max = A_a > A_b ? A_a : A_b;
   int A_a_p_A_b = A_a + A_b;
@@ -50,11 +50,19 @@ int main() {
     aa_freqs[a] = log(aa_counts[a] / norm);
   }
 
-  c_float_t* x = (c_float_t*) malloc(sizeof(c_float_t)*(A_a_p_A_b + AA_ab));
-  for(int idx = 0; idx < A_a_p_A_b + AA_ab; idx++) {
-    x[idx] = (c_float_t)rand() / (c_float_t)RAND_MAX;
-    x[idx] = 0;
+
+  c_float_t* x = (c_float_t*) calloc(A_a_p_A_b + AA_ab, sizeof(c_float_t));
+  for(int idx = 0; idx < A_a_p_A_b; idx++) {
+    x[idx] = log0;
   }
+  x[0] = 0;
+  x[1] = 0;
+  x[2] = 0;
+  x[A_a + 0] = 0;
+  x[A_a + 1] = 0;
+  x[A_a + 2] = 0;
+
+
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(A_a_p_A_b + AA_ab));
 
   Node ll_node;

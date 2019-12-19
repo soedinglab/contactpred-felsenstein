@@ -597,7 +597,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   // p(a,.|.,b)
   c_float_t *p_ij_cond = consts->p_ij_cond;
   initialize_array(p_ij_cond, log0, AA_ab);
-  c_float_t tmp_prob[A_a];
+  c_float_t tmp_prob[(A_a > A_b) ? A_a : A_b];
   for (int b = 0; b < A_b; b++) {
     for (int a = 0; a < A_a; a++) {
       c_float_t log_prob = v[a] + w[a * A_b + b];

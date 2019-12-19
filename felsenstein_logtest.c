@@ -14,7 +14,7 @@ int main() {
   uint8_t* msa = (uint8_t*) malloc(sizeof(u_int8_t)*N*L);
   for(int i = 0; i < L; i++) {
     msa[0*L + i] = 0;
-    msa[1*L + i] = 0;
+    msa[1*L + i] = 2;
     msa[2*L + i] = 1;
     msa[3*L + i] = 1;
   }
@@ -40,11 +40,18 @@ int main() {
     aa_freqs[a] = log(aa_counts[a] / norm);
   }
 
-  c_float_t* x = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
-  for(int idx = 0; idx < N_COL*A + A*A; idx++) {
-    x[idx] = (c_float_t)rand() / (c_float_t)RAND_MAX;
-    x[idx] = 0;
+  c_float_t* x = (c_float_t*) calloc(N_COL*A + A*A, sizeof(c_float_t));
+  for(int idx = 0; idx < N_COL*A; idx++) {
+    x[idx] = log0;
   }
+
+  x[0] = 0;
+  x[1] = 0;
+  x[2] = 0;
+  x[A + 0] = 0;
+  x[A + 1] = 0;
+  x[A + 2] = 0;
+
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
 
   Node ll_node;
