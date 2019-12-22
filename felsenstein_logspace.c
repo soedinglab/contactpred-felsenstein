@@ -415,7 +415,6 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buffer* buf) {
 
   precalculate_constants(consts, x, x + N_COL*A);
-  c_float_t* aa_freqs = consts->single_aa_frequencies;
   Node* root = consts->phylo_tree;
 
   recurse_tree(root, consts, buf);
@@ -424,35 +423,37 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   c_float_t fx = 0;
   for(int a = 0; a < A; a++) {
     for(int b = 0; b < A; b++) {
-      buffer_AA_fx[a*A + b] =  root->data->Ln_ab[a*A + b] + aa_freqs[a] + aa_freqs[b];
+      buffer_AA_fx[a*A + b] =  root->data->Ln_ab[a*A + b] + consts->p_ab[a*A + b];
     }
   }
   fx = logsumexpn(buffer_AA_fx, AA);
 
-  c_float_t buffer_AA_grad[AA];
+  c_float_t buffer_2AA_grad[2*AA];
+  int8_t buffer_2AA_signs[2*AA];
   memset(grad, c_f0, (N_COL*A + A*A)*sizeof(c_float_t));
-  for(int l = 0; l < N_COL; l++) {
-    for(int c = 0; c < A; c++) {
-      for(int a = 0; a < A; a++) {
-        for(int b = 0; b < A; b++) {
-          buffer_AA_grad[a*A + b] = root->data->dv_Ln_ab[l*AAA + c*AA + a*A + b] + aa_freqs[a] + aa_freqs[b];
-        }
-      }
-      SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_AA_grad, root->data->dv_Ln_ab_signs + l*AAA + c*AA, AA);
-      grad[l*A + c] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
+  for(int lc = 0; lc < N_COL*A; lc++) {
+    for(int ab = 0; ab < AA; ab++) {
+      int base_idx = 2 * ab;
+      buffer_2AA_grad[base_idx] = root->data->dv_Ln_ab[lc * AA + ab] + consts->p_ab[ab];
+      buffer_2AA_signs[base_idx] = root->data->dv_Ln_ab_signs[lc * AA + ab];
+      buffer_2AA_grad[base_idx + 1] = root->data->Ln_ab[ab] + consts->dv_p_ab[lc * AA + ab];
+      buffer_2AA_signs[base_idx + 1] = consts->dv_p_ab_signs[lc * AA + ab];
     }
+    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA);
+    grad[lc] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
   }
-  for(int c = 0; c < A; c++) {
-    for(int d = 0; d < A; d++) {
-      for(int a = 0; a < A; a++) {
-        for(int b = 0; b < A; b++) {
-          buffer_AA_grad[a*A + b] = root->data->dw_Ln_ab[c*AAA + d*AA + a*A + b] + aa_freqs[a] + aa_freqs[b];
-        }
-      }
-      SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_AA_grad, root->data->dw_Ln_ab_signs + c*AAA + d*AA, AA);
-      grad[N_COL*A + c*A + d] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
+  for(int cd = 0; cd < AA; cd++) {
+    for(int ab = 0; ab < AA; ab++) {
+        int base_idx = 2*ab;
+        buffer_2AA_grad[base_idx] = root->data->dw_Ln_ab[cd*AA + ab] + consts->p_ab[ab];
+        buffer_2AA_signs[base_idx] = root->data->dw_Ln_ab_signs[cd*AA + ab];
+        buffer_2AA_grad[base_idx + 1] = root->data->Ln_ab[ab] + consts->dw_p_ab[cd*AA + ab];
+        buffer_2AA_signs[base_idx + 1] = consts->dw_p_ab[cd*AA + ab];
     }
+    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA);
+    grad[N_COL*A + cd] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
   }
+
   deinitialize_node(root);
   return fx;
 }
@@ -495,7 +496,6 @@ void deinitialize_constants(Constants* consts) {
 
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   // p_ab related precomputations
-  c_float_t total_sum = 0;
   c_float_t *p_ab = consts->p_ab;
   initialize_array(p_ab, log0, AA);
   for (int a = 0; a < A; a++) {

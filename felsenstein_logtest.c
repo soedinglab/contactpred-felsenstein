@@ -24,33 +24,23 @@ int main() {
   c_float_t t2 = 0.2;
   c_float_t phi2 = exp(-t2);
 
-  c_float_t* aa_freqs = (c_float_t*) calloc(A, sizeof(c_float_t));
-
-  c_float_t aa_counts[A] = {1e-9};
-  for(int a = 0; a < N*L; a++) {
-    aa_counts[msa[a]] += 1;
-  }
-
-  c_float_t norm = 0;
-  for(int a = 0; a < A; a++) {
-    norm += aa_counts[a];
-  }
-
-  for(int a = 0; a < A; a++) {
-    aa_freqs[a] = log(aa_counts[a] / norm);
-  }
-
   c_float_t* x = (c_float_t*) calloc(N_COL*A + A*A, sizeof(c_float_t));
   for(int idx = 0; idx < N_COL*A; idx++) {
     x[idx] = log0;
   }
 
-  x[0] = 0;
+  x[0] = 1;
   x[1] = 0;
   x[2] = 0;
   x[A + 0] = 0;
   x[A + 1] = 0;
   x[A + 2] = 0;
+
+  for(int a = 0; a < 3; a++) {
+    for(int b = 0; b < 3; b++) {
+      x[2*A + a*A + b] = a<b ? 1 : 2;
+    }
+  }
 
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
 
@@ -96,7 +86,6 @@ int main() {
   root->seq_id = -1;
 
   Constants* consts = malloc(sizeof(Constants));
-  consts->single_aa_frequencies = aa_freqs;
   consts->phylo_tree = root;
   consts->msa = msa;
   consts->L = L;
@@ -115,6 +104,8 @@ int main() {
 
   c_float_t epsilon = 1e-9;
   int pos = 0;
+
+
   for(int l = 0; l < N_COL; l++) {
     for(int c = 0; c < A; c++) {
       calculate_fx_grad(x, grad, consts, buffer);
@@ -129,6 +120,7 @@ int main() {
       pos++;
     }
   }
+
 
   for(int c = 0; c < A; c++) {
     for(int d = 0; d < A; d++) {
@@ -156,7 +148,6 @@ int main() {
   free(buffer);
 
   deinitialize_constants(consts);
-  free(consts->single_aa_frequencies);
   free(consts->msa);
   free(consts->phylo_tree);
   free(consts);

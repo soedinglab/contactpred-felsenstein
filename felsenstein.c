@@ -277,14 +277,13 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buffer* buf) {
 
   precalculate_constants(consts, x, x + N_COL*A);
-  c_float_t* aa_freqs = consts->single_aa_frequencies;
   Node* root = consts->phylo_tree;
 
   recurse_tree(root, consts, buf);
   c_float_t fx = 0;
   for(int a = 0; a < A; a++) {
     for(int b = 0; b < A; b++) {
-      fx += root->data->Ln_ab[a*A + b] * aa_freqs[a] * aa_freqs[b];
+      fx += root->data->Ln_ab[a*A + b] * consts->p_ab[a*A +b];
     }
   }
 
@@ -293,7 +292,8 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
     for(int c = 0; c < A; c++) {
       for(int a = 0; a < A; a++) {
         for(int b = 0; b < A; b++) {
-          grad[l*A + c] += root->data->dv_Ln_ab[l*AAA + c*AA + a*A + b] * aa_freqs[a] * aa_freqs[b];
+          grad[l*A + c] += root->data->dv_Ln_ab[l*AAA + c*AA + a*A + b] * consts->p_ab[a*A + b];
+          grad[l*A + c] += root->data->Ln_ab[a*A + b] * consts->dv_p_ab[l*AAA + c*AA + a*A + b];
         }
       }
     }
@@ -302,7 +302,8 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
     for(int d = 0; d < A; d++) {
       for(int a = 0; a < A; a++) {
         for(int b = 0; b < A; b++) {
-          grad[N_COL*A + c*A + d] += root->data->dw_Ln_ab[c*AAA + d*AA + a*A + b] * aa_freqs[a] * aa_freqs[b];
+          grad[N_COL*A + c*A + d] += root->data->dw_Ln_ab[c*AAA + d*AA + a*A + b] * consts->p_ab[a*A + b];
+          grad[N_COL*A + c*A + d] += root->data->Ln_ab[a*A + b] * consts->dw_p_ab[c*AAA + d*AA + a*A + b];
         }
       }
     }

@@ -204,7 +204,6 @@ typedef struct Constants {
   int8_t* dw_p_ji_cond_signs;
   c_float_t* dv_p_ji_cond;
   int8_t* dv_p_ji_cond_signs;
-  c_float_t* single_aa_frequencies;
 
   Node* phylo_tree;
   uint8_t* msa;

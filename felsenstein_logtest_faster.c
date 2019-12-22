@@ -19,7 +19,7 @@ int main() {
     msa[3*L + i] = 1;
   }
 
-  int A_a = 3;
+  int A_a = 5;
   int A_b = 3;
   int A_max = A_a > A_b ? A_a : A_b;
   int A_a_p_A_b = A_a + A_b;
@@ -30,37 +30,23 @@ int main() {
   c_float_t t2 = 0.2;
   c_float_t phi2 = exp(-t2);
 
-  c_float_t* aa_freqs = (c_float_t*) calloc(A_max, sizeof(c_float_t));
-
-  c_float_t aa_counts[A_max];
-  for(int a = 0; a < A_max; a++) {
-    aa_counts[a] = 1e-9;
-  }
-
-  for(int a = 0; a < N*L; a++) {
-    aa_counts[msa[a]] += 1;
-  }
-
-  c_float_t norm = 0;
-  for(int a = 0; a < A_max; a++) {
-    norm += aa_counts[a];
-  }
-
-  for(int a = 0; a < A_max; a++) {
-    aa_freqs[a] = log(aa_counts[a] / norm);
-  }
-
 
   c_float_t* x = (c_float_t*) calloc(A_a_p_A_b + AA_ab, sizeof(c_float_t));
   for(int idx = 0; idx < A_a_p_A_b; idx++) {
     x[idx] = log0;
   }
-  x[0] = 0;
+  x[0] = 1;
   x[1] = 0;
   x[2] = 0;
   x[A_a + 0] = 0;
   x[A_a + 1] = 0;
   x[A_a + 2] = 0;
+
+  for(int a = 0; a < 3; a++) {
+    for(int b = 0; b < 3; b++) {
+      x[A_a_p_A_b + a*A_b + b] = a<b ? 1 : 2;
+    }
+  }
 
 
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(A_a_p_A_b + AA_ab));
@@ -107,7 +93,6 @@ int main() {
   root->seq_id = -1;
 
   Constants* consts = malloc(sizeof(Constants));
-  consts->single_aa_frequencies = aa_freqs;
   consts->phylo_tree = root;
   consts->msa = msa;
   consts->L = L;
@@ -169,7 +154,6 @@ int main() {
   free(buffer);
 
   deinitialize_constants(consts);
-  free(consts->single_aa_frequencies);
   free(consts->msa);
   free(consts->phylo_tree);
   free(consts);

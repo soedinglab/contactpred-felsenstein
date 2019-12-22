@@ -88,7 +88,6 @@ int main() {
   root->seq_id = -1;
 
   Constants* consts = malloc(sizeof(Constants));
-  consts->single_aa_frequencies = aa_freqs;
   consts->phylo_tree = root;
   consts->msa = msa;
   consts->L = L;
@@ -148,7 +147,6 @@ int main() {
   free(buffer);
 
   deinitialize_constants(consts);
-  free(consts->single_aa_frequencies);
   free(consts->msa);
   free(consts->phylo_tree);
   free(consts);

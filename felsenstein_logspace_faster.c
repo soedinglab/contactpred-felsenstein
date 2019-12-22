@@ -443,7 +443,6 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   int A_a_p_A_b = consts->A_a_p_A_b;
 
   precalculate_constants(consts, x, x + A_a_p_A_b);
-  c_float_t* aa_freqs = consts->single_aa_frequencies;
   Node* root = consts->phylo_tree;
 
   recurse_tree(root, consts, buf);
@@ -452,29 +451,35 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   c_float_t fx = 0;
   for(int a = 0; a < A_a; a++) {
     for(int b = 0; b < A_b; b++) {
-      buffer_AA_fx[a*A_b + b] =  root->data->Ln_ab[a*A_b + b] + aa_freqs[a] + aa_freqs[b];
+      buffer_AA_fx[a*A_b + b] =  root->data->Ln_ab[a*A_b + b] + consts->p_ab[a*A_b + b];
     }
   }
   fx = logsumexpn(buffer_AA_fx, AA_ab);
 
-  c_float_t buffer_AA_grad[AA_ab];
   memset(grad, c_f0, (A_a_p_A_b + AA_ab)*sizeof(c_float_t));
+  c_float_t buffer_2AA_grad[2*AA_ab];
+  int8_t buffer_2AA_signs[2*AA_ab];
+
   for(int lc = 0; lc < A_a_p_A_b; lc++) {
-    for(int a = 0; a < A_a; a++) {
-      for(int b = 0; b < A_b; b++) {
-        buffer_AA_grad[a*A_b + b] = root->data->dv_Ln_ab[lc*AA_ab + a*A_b + b] + aa_freqs[a] + aa_freqs[b];
-      }
+    for(int ab = 0; ab < AA_ab; ab++) {
+      int base_idx = 2*ab;
+      buffer_2AA_grad[base_idx] = root->data->dv_Ln_ab[lc*AA_ab + ab] + consts->p_ab[ab];
+      buffer_2AA_signs[base_idx] = root->data->dv_Ln_ab_signs[lc*AA_ab + ab];
+      buffer_2AA_grad[base_idx + 1] = root->data->Ln_ab[ab] + consts->dv_p_ab[lc*AA_ab + ab];
+      buffer_2AA_signs[base_idx + 1] = consts->dv_p_ab_signs[lc*AA_ab + ab];
     }
-    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_AA_grad, root->data->dv_Ln_ab_signs + lc*AA_ab, AA_ab);
+    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
     grad[lc] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
   }
   for(int cd = 0; cd < AA_ab; cd++) {
-    for(int a = 0; a < A_a; a++) {
-      for(int b = 0; b < A_b; b++) {
-        buffer_AA_grad[a*A_b + b] = root->data->dw_Ln_ab[cd*AA_ab + a*A_b + b] + aa_freqs[a] + aa_freqs[b];
-      }
+    for(int ab = 0; ab < AA_ab; ab++) {
+      int base_idx = 2*ab;
+      buffer_2AA_grad[base_idx] = root->data->dw_Ln_ab[cd*AA_ab + ab] + consts->p_ab[ab];
+      buffer_2AA_signs[base_idx] = root->data->dw_Ln_ab_signs[cd*AA_ab + ab];
+      buffer_2AA_grad[base_idx + 1] = root->data->Ln_ab[ab] + consts->dw_p_ab[cd*AA_ab + ab];
+      buffer_2AA_signs[base_idx + 1] = consts->dw_p_ab_signs[cd*AA_ab + ab];
     }
-    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_AA_grad, root->data->dw_Ln_ab_signs + cd*AA_ab, AA_ab);
+    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
     grad[A_a_p_A_b + cd] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
   }
   deinitialize_node(root);
