@@ -448,7 +448,7 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
         buffer_2AA_grad[base_idx] = root->data->dw_Ln_ab[cd*AA + ab] + consts->p_ab[ab];
         buffer_2AA_signs[base_idx] = root->data->dw_Ln_ab_signs[cd*AA + ab];
         buffer_2AA_grad[base_idx + 1] = root->data->Ln_ab[ab] + consts->dw_p_ab[cd*AA + ab];
-        buffer_2AA_signs[base_idx + 1] = consts->dw_p_ab[cd*AA + ab];
+        buffer_2AA_signs[base_idx + 1] = consts->dw_p_ab_signs[cd*AA + ab];
     }
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA);
     grad[N_COL*A + cd] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
