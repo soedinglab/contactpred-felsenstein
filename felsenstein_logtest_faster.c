@@ -21,7 +21,6 @@ int main() {
 
   int A_a = 5;
   int A_b = 3;
-  int A_max = A_a > A_b ? A_a : A_b;
   int A_a_p_A_b = A_a + A_b;
   int AA_ab = A_a * A_b;
 

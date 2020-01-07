@@ -1,0 +1,4 @@
+NP_INC="$(python -c 'import numpy;print(numpy.get_include())')"
+export CFLAGS="$CFLAGS -I$NP_INC"
+
+cythonize -f -i -a optimize_felsenstein_faster.pyx
