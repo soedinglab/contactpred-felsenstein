@@ -19,6 +19,7 @@ def create_parser():
     parser.add_argument('--lbfgs-pgtol', type=float, default=1e-5)
     parser.add_argument('--lbfgs-factr', type=float, default=1e7)
     parser.add_argument('--n-threads', type=int, default=1)
+    parser.add_argument('--w_ijab_out')
     return parser
 
 
@@ -33,7 +34,7 @@ def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol):
         raise
     N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
     n_ijab = calculate_nijab(v, w, lambda_w, N_ij)
-    return n_ijab
+    return n_ijab, v, w
 
 
 def main():
@@ -53,6 +54,7 @@ def main():
 
     jobs = []
     n_pair = np.zeros((L, L, A, A))
+    w_full = np.zeros((L, L, A, A))
     with Pool(args.n_threads) as pool:
         for i in range(0, L):
             for j in range(i+1, L):
@@ -60,10 +62,14 @@ def main():
                 jobs.append(((i, j), job))
  
         for num, ((i, j), job) in enumerate(jobs):
-            n_pair[i, j] = job.get()
+            n_ij, v, w = job.get()
+            n_pair[i, j] = n_ij
+            w_full[i, j] = w
             print(f'finished {num+1}/{len(jobs)}')
 
     np.save(args.n_ijab_out, n_pair)
+    if args.w_ijab_out:
+        np.save(args.w_ijab_out, w_full)
 
 
 def calculate_p_ijab(v, w):

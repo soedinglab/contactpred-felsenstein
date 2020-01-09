@@ -242,6 +242,6 @@ def reduced2long_params(x, msa, i, j):
         for mapped_j in range(A_j):
             orig_i = backmapping_i[mapped_i]
             orig_j = backmapping_j[mapped_j]
-            w[orig_i, orig_j] = x_w[mapped_i*A_i + mapped_j]
+            w[orig_i, orig_j] = x_w[mapped_i*A_j + mapped_j]
             
     return np.concatenate((v.ravel(), w.ravel()))
