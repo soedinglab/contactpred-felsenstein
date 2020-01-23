@@ -560,7 +560,9 @@ void deinitialize_constants(Constants* consts) {
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
 
   int A_a = consts->A_a;
+  int A_i = consts->A_i;
   int A_b = consts->A_b;
+  int A_j = consts->A_j;
   int A_a_p_A_b = consts->A_a_p_A_b;
   int AA_ab = consts->AA_ab;
 
@@ -616,16 +618,20 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   }
 
 
-  c_float_t *dw_p_ab = consts->dw_p_ab;
-  initialize_array(dw_p_ab, log0,  AA_ab*AA_ab);
+  c_float_t *dw_p_ab_lin = consts->dw_p_ab;
+  initialize_array(dw_p_ab_lin, log0,  AA_ab*AA_ab);
+  c_float_t *dw_p_ab_signs_lin = consts->dw_p_ab_signs;
+  c_float_t (*dw_p_ab)[A_j][A_i][A_j] = (c_float_t (*)[A_j][A_i][A_j]) dw_p_ab_lin;
+  c_float_t (*dw_p_ab_signs)[A_j][A_i][A_j] = (c_float_t (*)[A_j][A_i][A_j]) dw_p_ab_signs_lin;
+
+
   for (int c = 0; c < A_a; c++) {
     for (int d = 0; d < A_b; d++) {
       for (int a = 0; a < A_a; a++) {
         for (int b = 0; b < A_b; b++) {
-          int ind = c * AA_ab*A_b + d * AA_ab + a*A_b + b;
           SignedLogExp logsumexp_result = signed_logsumexp2((a == c && b == d) ? 0: log0, 1,  p_ab[c*A_b + d], -1);
-          dw_p_ab[ind] = logsumexp_result.result + p_ab[a * A_b + b];
-          consts->dw_p_ab_signs[ind] = logsumexp_result.sign;
+          dw_p_ab[c][d][a][b] = logsumexp_result.result + p_ab[a * A_b + b];
+          dw_p_ab_signs[c][d][a][b] = logsumexp_result.sign;
         }
       }
     }
@@ -660,16 +666,19 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
-  c_float_t *dw_p_ij_cond = consts->dw_p_ij_cond;
-  initialize_array(dw_p_ij_cond, log0,AA_ab*AA_ab);
+  c_float_t *dw_p_ij_cond_lin = consts->dw_p_ij_cond;
+  initialize_array(dw_p_ij_cond_lin, log0,  AA_ab*AA_ab);
+  c_float_t *dw_p_ij_cond_signs_lin = consts->dw_p_ij_cond_signs;
+  c_float_t (*dw_p_ij_cond)[A_j][A_i][A_j] = (c_float_t (*)[A_j][A_i][A_j]) dw_p_ij_cond_lin;
+  c_float_t (*dw_p_ij_cond_signs)[A_j][A_i][A_j] = (c_float_t (*)[A_j][A_i][A_j]) dw_p_ij_cond_signs_lin;
+
   for (int c = 0; c < A_a; c++) {
     for (int d = 0; d < A_b; d++) {
       for (int a = 0; a < A_a; a++) {
         int b = d;
-        int ind = c * AA_ab*A_b + d*AA_ab + a*A_b + b;
         SignedLogExp logsumexp_result = signed_logsumexp2((a == c) ? 0: log0, 1,  p_ij_cond[c*A_b + d], -1);
-        dw_p_ij_cond[ind] = logsumexp_result.result + p_ij_cond[a*A_b + b];
-        consts->dw_p_ij_cond_signs[ind] = logsumexp_result.sign;
+        dw_p_ij_cond[c][d][a][b] = logsumexp_result.result + p_ij_cond[a*A_b + b];
+        dw_p_ij_cond_signs[c][d][a][b] = logsumexp_result.sign;
       }
     }
   }
@@ -702,16 +711,19 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
-  c_float_t *dw_p_ji_cond = consts->dw_p_ji_cond;
-  initialize_array(dw_p_ji_cond, log0, AA_ab*AA_ab);
+  c_float_t *dw_p_ji_cond_lin = consts->dw_p_ji_cond;
+  initialize_array(dw_p_ji_cond_lin, log0,AA_ab*AA_ab);
+  c_float_t *dw_p_ji_cond_signs_lin = consts->dw_p_ji_cond_signs;
+  c_float_t (*dw_p_ji_cond)[A_j][A_j][A_i] = (c_float_t (*)[A_j][A_j][A_i]) dw_p_ji_cond_lin;
+  c_float_t (*dw_p_ji_cond_signs)[A_j][A_j][A_i] = (c_float_t (*)[A_j][A_j][A_i]) dw_p_ji_cond_signs_lin;
+
   for (int c = 0; c < A_a; c++) {
     for (int d = 0; d < A_b; d++) {
       for (int b = 0; b < A_b; b++) {
         int a = c;
-        int ind = c*AA_ab*A_b + d*AA_ab + b*A_a + a;
         SignedLogExp logsumexp_result = signed_logsumexp2((b == d) ? 0: log0, 1, p_ji_cond[d*A_a + c], -1);
-        dw_p_ji_cond[ind] = logsumexp_result.result + p_ji_cond[b*A_a + a];
-        consts->dw_p_ji_cond_signs[ind] = logsumexp_result.sign;
+        dw_p_ji_cond[c][d][b][a] = logsumexp_result.result + p_ji_cond[b*A_a + a];
+        dw_p_ji_cond_signs[c][d][b][a] = logsumexp_result.sign;
       }
     }
   }
