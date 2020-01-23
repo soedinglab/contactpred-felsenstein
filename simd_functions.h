@@ -1,0 +1,8 @@
+//
+// Created by Christian Roth on 21/01/2020.
+//
+
+#ifndef FELSENSTEIN_SIMD_FUNCTIONS_H
+#define FELSENSTEIN_SIMD_FUNCTIONS_H
+
+#endif //FELSENSTEIN_SIMD_FUNCTIONS_H
