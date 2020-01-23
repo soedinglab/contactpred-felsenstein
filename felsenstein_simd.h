@@ -14,7 +14,7 @@
 #define AAAA 160000
 #define log0 -1000
 
-typedef double c_float_t;
+typedef float c_float_t;
 
 typedef struct SignedLogExp {
   int8_t sign;
@@ -31,11 +31,11 @@ static inline void initialize_array(c_float_t* arr, c_float_t value, int length)
 static inline c_float_t logsumexp2(c_float_t log_x, c_float_t log_y) {
   c_float_t logsumexp;
   if(log_x > log_y) {
-    c_float_t exp_part = 1 + exp(log_y - log_x);
-    logsumexp = log_x + ((exp_part != 0) ? log(exp_part) : log0);
+    c_float_t exp_part = 1 + powf(2, log_y - log_x);
+    logsumexp = log_x + ((exp_part != 0) ? log2f(exp_part) : log0);
   } else {
-    c_float_t exp_part = exp(log_x - log_y) + 1;
-    logsumexp = log_y + ((exp_part != 0) ? log(exp_part) : log0);
+    c_float_t exp_part = powf(2, log_x - log_y) + 1;
+    logsumexp = log_y + ((exp_part != 0) ? log2(exp_part) : log0);
   }
   return logsumexp;
 }
@@ -44,13 +44,13 @@ static inline SignedLogExp signed_logsumexp2(c_float_t log_x, int8_t sign_x, c_f
   c_float_t logsumexp;
   int8_t sign;
   if(log_x > log_y) {
-    c_float_t exp_part = sign_x + sign_y * exp(log_y - log_x);
+    c_float_t exp_part = sign_x + sign_y * powf(2, log_y - log_x);
     sign = exp_part >= 0 ? 1 : -1;
-    logsumexp = log_x + ((exp_part != 0) ? log(sign*exp_part) : log0);
+    logsumexp = log_x + ((exp_part != 0) ? log2(sign*exp_part) : log0);
   } else {
-    c_float_t exp_part = sign_x * exp(log_x - log_y) + sign_y;
+    c_float_t exp_part = sign_x * powf(2, log_x - log_y) + sign_y;
     sign = exp_part >= 0 ? 1 : -1;
-    logsumexp = log_y + ((exp_part != 0) ? log(sign*exp_part) : log0);
+    logsumexp = log_y + ((exp_part != 0) ? log2(sign*exp_part) : log0);
   }
   SignedLogExp result = {sign, logsumexp};
   return result;
@@ -59,14 +59,14 @@ static inline SignedLogExp signed_logsumexp2(c_float_t log_x, int8_t sign_x, c_f
 static inline c_float_t logsumexp3(c_float_t log_x, c_float_t log_y, c_float_t log_z) {
   c_float_t logsumexp;
   if(log_x > log_y && log_x > log_z) {
-    c_float_t exp_part = 1 + exp(log_y - log_x) + exp(log_z - log_x);
-    logsumexp = log_x + ((exp_part != 0) ? log(exp_part) : log0);
+    c_float_t exp_part = 1 + powf(2, log_y - log_x) + powf(2, log_z - log_x);
+    logsumexp = log_x + ((exp_part != 0) ? log2(exp_part) : log0);
   } else if(log_y > log_x && log_y > log_z) {
-    c_float_t exp_part = exp(log_x - log_y) + 1 + exp(log_z - log_y);
-    logsumexp = log_y + ((exp_part != 0) ? log(exp_part) : log0);
+    c_float_t exp_part = powf(2, log_x - log_y) + 1 + powf(2, log_z - log_y);
+    logsumexp = log_y + ((exp_part != 0) ? log2(exp_part) : log0);
   } else {
-    c_float_t exp_part = exp(log_x - log_z) + exp(log_y - log_z) + 1;
-    logsumexp = log_z + ((exp_part != 0) ? log(exp_part) : log0);
+    c_float_t exp_part = powf(2, log_x - log_z) + powf(2, log_y - log_z) + 1;
+    logsumexp = log_z + ((exp_part != 0) ? log2(exp_part) : log0);
   }
   return logsumexp;
 }
@@ -75,17 +75,17 @@ static inline SignedLogExp signed_logsumexp3(c_float_t log_x, int8_t sign_x, c_f
   c_float_t logsumexp;
   int8_t sign;
   if(log_x > log_y && log_x > log_z) {
-    c_float_t exp_part = sign_x + sign_y*exp(log_y - log_x) + sign_z*exp(log_z - log_x);
+    c_float_t exp_part = sign_x + sign_y*powf(2, log_y - log_x) + sign_z*powf(2, log_z - log_x);
     sign = exp_part >= 0 ? 1 : -1;
-    logsumexp = log_x + ((exp_part != 0) ? log(sign*exp_part) : log0);
+    logsumexp = log_x + ((exp_part != 0) ? log2(sign*exp_part) : log0);
   } else if(log_y > log_x && log_y > log_z) {
-    c_float_t exp_part = sign_x*exp(log_x - log_y) + sign_y + sign_z*exp(log_z - log_y);
+    c_float_t exp_part = sign_x*powf(2, log_x - log_y) + sign_y + sign_z*powf(2, log_z - log_y);
     sign = exp_part >= 0 ? 1 : -1;
-    logsumexp = log_y + ((exp_part != 0) ? log(sign*exp_part) : log0);
+    logsumexp = log_y + ((exp_part != 0) ? log2(sign*exp_part) : log0);
   } else {
-    c_float_t exp_part = sign_x*exp(log_x - log_z) + sign_y*exp(log_y - log_z) + sign_z;
+    c_float_t exp_part = sign_x*powf(2, log_x - log_z) + sign_y*powf(2, log_y - log_z) + sign_z;
     sign = exp_part >= 0 ? 1 : -1;
-    logsumexp = log_z + ((exp_part != 0) ? log(sign*exp_part) : log0);
+    logsumexp = log_z + ((exp_part != 0) ? log2(sign*exp_part) : log0);
   }
   SignedLogExp result = {sign, logsumexp};
   return result;
@@ -101,9 +101,9 @@ static inline c_float_t logsumexpn(c_float_t* log_vals, int n) {
   }
   c_float_t exp_sum = 0;
   for(int i = 0; i < n; i++) {
-    exp_sum += exp(log_vals[i] - max);
+    exp_sum += powf(2, log_vals[i] - max);
   }
-  return max + ((exp_sum != 0) ? log(exp_sum) : log0);
+  return max + ((exp_sum != 0) ? log2(exp_sum) : log0);
 }
 
 static inline SignedLogExp signed_logsumexp_n(c_float_t* log_vals, int8_t* signs, int n) {
@@ -113,13 +113,12 @@ static inline SignedLogExp signed_logsumexp_n(c_float_t* log_vals, int8_t* signs
   }
   c_float_t exp_sum = 0;
   for(int i = 0; i < n; i++) {
-    exp_sum += signs[i] * exp(log_vals[i] - max);
+    exp_sum += signs[i] * powf(2, log_vals[i] - max);
   }
   int8_t sign = exp_sum >= 0 ? 1 : -1;
-  SignedLogExp result = {sign, max + ((exp_sum != 0) ? log(exp_sum * sign) : log0)};
+  SignedLogExp result = {sign, max + ((exp_sum != 0) ? log2(exp_sum * sign) : log0)};
   return result;
 }
-
 
 
 typedef struct NodePrecomputation {
