@@ -55,12 +55,12 @@ void initialize_buffer(NodeBuffer* buffer, Constants* consts) {
   buffer->dv_Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*A_a_p_A_b*A_b);
   buffer->dv_Ln_jb_signs = (c_float_t*) malloc(sizeof(c_float_t)*A_a_p_A_b*A_b);
 
-  buffer->dw_Ln = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab);
-  buffer->dw_Ln_signs = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab);
-  buffer->dw_Ln_ia = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab*A_a);
-  buffer->dw_Ln_ia_signs = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab*A_a);
-  buffer->dw_Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab*A_b);
-  buffer->dw_Ln_jb_signs = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab*A_b);
+  buffer->dw_Ln = (c_float_t*) malloc(sizeof(c_float_t)*AA_ij_padded);
+  buffer->dw_Ln_signs = (c_float_t*) malloc(sizeof(c_float_t)*AA_ij_padded);
+  buffer->dw_Ln_ia = (c_float_t*) malloc(sizeof(c_float_t)*A_a*AA_ij_padded);
+  buffer->dw_Ln_ia_signs = (c_float_t*) malloc(sizeof(c_float_t)*A_a*AA_ij_padded);
+  buffer->dw_Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*A_b*AA_ij_padded);
+  buffer->dw_Ln_jb_signs = (c_float_t*) malloc(sizeof(c_float_t)*A_b*AA_ij_padded);
 }
 
 void deinitialize_buffer(NodeBuffer* buffer) {
@@ -92,23 +92,16 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
   int A_a_p_A_b = consts->A_a_p_A_b;
   int AA_ij_padded = consts->AA_ij_padded;
 
-  //c_float_t *p_ab = consts->p_ab;
   c_float_t *dv_p_ab = consts->dv_p_ab;
   c_float_t *dv_p_ab_signs = consts->dv_p_ab_signs;
-  //c_float_t *dw_p_ab = consts->dw_p_ab;
-  //c_float_t *dw_p_ab_signs = consts->dw_p_ab_signs;
 
   c_float_t *p_ij_cond = consts->p_ij_cond;
   c_float_t *dv_p_ij_cond = consts->dv_p_ij_cond;
   c_float_t *dv_p_ij_cond_signs = consts->dv_p_ij_cond_signs;
-  //c_float_t *dw_p_ij_cond = consts->dw_p_ij_cond;
-  //c_float_t *dw_p_ij_cond_signs = consts->dw_p_ij_cond_signs;
 
   c_float_t *p_ji_cond = consts->p_ji_cond;
   c_float_t *dv_p_ji_cond = consts->dv_p_ji_cond;
   c_float_t *dv_p_ji_cond_signs = consts->dv_p_ji_cond_signs;
-  //c_float_t *dw_p_ji_cond = consts->dw_p_ji_cond;
-  //c_float_t *dw_p_ji_cond_signs = consts->dw_p_ji_cond_signs;
 
 
   c_float_t (* dw_Ln_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) data->dw_Ln_ab;
@@ -118,16 +111,15 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
   c_float_t (* dw_p_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ab;
   c_float_t (* dw_p_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ab_signs;
   c_float_t (* p_ab)[A_j] = (c_float_t (*)[A_j]) consts->p_ab;
-  c_float_t (* dw_p_ij_cond)[A_i][A_j] = (c_float_t (*)[A_i][A_j]) consts->dw_p_ij_cond;
-  c_float_t (* dw_p_ij_cond_signs)[A_i][A_j] = (c_float_t (*)[A_i][A_j]) consts->dw_p_ij_cond_signs;
-  c_float_t (* dw_p_ji_cond)[A_j][A_i] = (c_float_t (*)[A_j][A_i]) consts->dw_p_ji_cond;
-  c_float_t (* dw_p_ji_cond_signs)[A_j][A_i] = (c_float_t (*)[A_j][A_i]) consts->dw_p_ji_cond_signs;
+  c_float_t (* dw_p_ij_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond;
+  c_float_t (* dw_p_ij_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond_signs;
+  c_float_t (* dw_p_ji_cond)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond;
+  c_float_t (* dw_p_ji_cond_signs)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond_signs;
 
-  c_float_t (*dw_Ln_ia)[A_i] =  (c_float_t (*)[A_i]) buffer->dw_Ln_ia;
-  c_float_t (*dw_Ln_ia_signs)[A_i] =  (c_float_t (*)[A_i]) buffer->dw_Ln_ia_signs;
-  c_float_t (*dw_Ln_jb)[A_j] =  (c_float_t (*)[A_j]) buffer->dw_Ln_jb;
-  c_float_t (*dw_Ln_jb_signs)[A_j] =  (c_float_t (*)[A_j]) buffer->dw_Ln_jb_signs;
-
+  c_float_t (*dw_Ln_ia)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_ia;
+  c_float_t (*dw_Ln_ia_signs)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_ia_signs;
+  c_float_t (*dw_Ln_jb)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_jb;
+  c_float_t (*dw_Ln_jb_signs)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_jb_signs;
 
 
   // Nulling out buffer
@@ -219,12 +211,12 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
         int base_idx = 2*d_p;
         log_buffer_2A_b[base_idx] = dw_Ln_ab[a][d_p][cd] + p_ji_cond[d_p*A_a + a];
         sign_buffer_2A_b[base_idx] = dw_Ln_ab_signs[a][d_p][cd];
-        log_buffer_2A_b[base_idx + 1] = Ln_ab[a][d_p] + dw_p_ji_cond[cd][d_p][a];
-        sign_buffer_2A_b[base_idx + 1] = dw_p_ji_cond_signs[cd][d_p][a];
+        log_buffer_2A_b[base_idx + 1] = Ln_ab[a][d_p] + dw_p_ji_cond[d_p][a][cd];
+        sign_buffer_2A_b[base_idx + 1] = dw_p_ji_cond_signs[d_p][a][cd];
       }
       SignedLogExp logsumexp_result = signed_logsumexp_n(log_buffer_2A_b, sign_buffer_2A_b, 2*A_b);
-      dw_Ln_ia[cd][a] = logsumexp_result.result;
-      dw_Ln_ia_signs[cd][a] = logsumexp_result.sign;
+      dw_Ln_ia[a][cd] = logsumexp_result.result;
+      dw_Ln_ia_signs[a][cd] = logsumexp_result.sign;
     }
   }
 
@@ -261,12 +253,12 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
         int base_idx = 2*c_p;
         log_buffer_2A_a[base_idx] = dw_Ln_ab[c_p][b][cd] + p_ij_cond[c_p*A_b + b];
         sign_buffer_2A_a[base_idx] = dw_Ln_ab_signs[c_p][b][cd];
-        log_buffer_2A_a[base_idx + 1] = data->Ln_ab[c_p*A_b + b] + dw_p_ij_cond[cd][c_p][b];
-        sign_buffer_2A_a[base_idx + 1] = dw_p_ij_cond_signs[cd][c_p][b];
+        log_buffer_2A_a[base_idx + 1] = data->Ln_ab[c_p*A_b + b] + dw_p_ij_cond[c_p][b][cd];
+        sign_buffer_2A_a[base_idx + 1] = dw_p_ij_cond_signs[c_p][b][cd];
       }
       SignedLogExp logsumexp_result = signed_logsumexp_n(log_buffer_2A_a, sign_buffer_2A_a, 2*A_a);
-      dw_Ln_jb[cd][b] = logsumexp_result.result;
-      dw_Ln_jb_signs[cd][b] = logsumexp_result.sign;
+      dw_Ln_jb[b][cd] = logsumexp_result.result;
+      dw_Ln_jb_signs[b][cd] = logsumexp_result.sign;
     }
   }
 
@@ -343,10 +335,10 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
     dv_L_ab_signs[lc] = mut_logsumexp.sign;
   }
 
-  c_float_t (*dw_Ln_ia)[A_i] = (c_float_t (*)[A_i]) child_buffer->dw_Ln_ia;
-  c_float_t (*dw_Ln_ia_signs)[A_i] = (c_float_t (*)[A_i]) child_buffer->dw_Ln_ia_signs;
-  c_float_t (*dw_Ln_jb)[A_j] = (c_float_t (*)[A_j]) child_buffer->dw_Ln_jb;
-  c_float_t (*dw_Ln_jb_signs)[A_j] = (c_float_t (*)[A_j]) child_buffer->dw_Ln_jb_signs;
+  c_float_t (*dw_Ln_ia)[AA_ij_padded] = (c_float_t (*)[AA_ij_padded]) child_buffer->dw_Ln_ia;
+  c_float_t (*dw_Ln_ia_signs)[AA_ij_padded] = (c_float_t (*)[AA_ij_padded]) child_buffer->dw_Ln_ia_signs;
+  c_float_t (*dw_Ln_jb)[AA_ij_padded] = (c_float_t (*)[AA_ij_padded]) child_buffer->dw_Ln_jb;
+  c_float_t (*dw_Ln_jb_signs)[AA_ij_padded] = (c_float_t (*)[AA_ij_padded]) child_buffer->dw_Ln_jb_signs;
   c_float_t (*dw_Ln_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) child_data->dw_Ln_ab;
   c_float_t (*dw_Ln_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) child_data->dw_Ln_ab_signs;
 
@@ -354,10 +346,10 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
     c_float_t ddw_mut2 = 2*log_1mr + child_buffer->dw_Ln[cd];
     c_float_t ddw_mut2_sign = child_buffer->dw_Ln_signs[cd];
 
-    c_float_t dw_Ln_ia_val = dw_Ln_ia[cd][a];
-    c_float_t dw_Ln_ia_sign_val = dw_Ln_ia_signs[cd][a];
-    c_float_t dw_Ln_jb_val = dw_Ln_jb[cd][b];
-    c_float_t dw_Ln_jb_sign_val = dw_Ln_jb_signs[cd][b];
+    c_float_t dw_Ln_ia_val = dw_Ln_ia[a][cd];
+    c_float_t dw_Ln_ia_sign_val = dw_Ln_ia_signs[a][cd];
+    c_float_t dw_Ln_jb_val = dw_Ln_jb[b][cd];
+    c_float_t dw_Ln_jb_sign_val = dw_Ln_jb_signs[b][cd];
     SignedLogExp mut1_logsumexp = signed_logsumexp2(dw_Ln_ia_val, dw_Ln_ia_sign_val, dw_Ln_jb_val, dw_Ln_jb_sign_val);
     c_float_t ddw_mut1 = log_r + log_1mr + mut1_logsumexp.result;
     c_float_t ddw_mut1_sign = mut1_logsumexp.sign;
@@ -546,13 +538,13 @@ void initialize_constants(Constants* consts) {
   consts->p_ij_cond = (c_float_t*) calloc(AA_ab, sizeof(c_float_t));
   consts->dv_p_ij_cond = (c_float_t*) calloc( A_a_p_A_b*AA_ab, sizeof(c_float_t));
   consts->dv_p_ij_cond_signs =  (c_float_t*) malloc(sizeof(c_float_t) * A_a_p_A_b*AA_ab);
-  consts->dw_p_ij_cond = (c_float_t*) calloc(AA_ab*AA_ab, sizeof(c_float_t));
-  consts->dw_p_ij_cond_signs =  (c_float_t*) malloc(sizeof(c_float_t) * AA_ab*AA_ab);
+  consts->dw_p_ij_cond = (c_float_t*) calloc(AA_ab*AA_ij_padded, sizeof(c_float_t));
+  consts->dw_p_ij_cond_signs =  (c_float_t*) malloc(sizeof(c_float_t) * AA_ab*AA_ij_padded);
   consts->p_ji_cond = (c_float_t*) calloc(AA_ab, sizeof(c_float_t));
   consts->dv_p_ji_cond = (c_float_t*) calloc( A_a_p_A_b*AA_ab, sizeof(c_float_t));
   consts->dv_p_ji_cond_signs =  (c_float_t*) malloc(sizeof(c_float_t) *  A_a_p_A_b*AA_ab);
-  consts->dw_p_ji_cond = (c_float_t*) calloc(AA_ab*AA_ab, sizeof(c_float_t));
-  consts->dw_p_ji_cond_signs =  (c_float_t*) malloc(sizeof(c_float_t) * AA_ab*AA_ab);
+  consts->dw_p_ji_cond = (c_float_t*) calloc(AA_ab*AA_ij_padded, sizeof(c_float_t));
+  consts->dw_p_ji_cond_signs =  (c_float_t*) malloc(sizeof(c_float_t) * AA_ab*AA_ij_padded);
 }
 
 void deinitialize_constants(Constants* consts) {
@@ -684,16 +676,18 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
-  c_float_t *dw_p_ij_cond = consts->dw_p_ij_cond;
-  initialize_array(dw_p_ij_cond, log0,AA_ab*AA_ab);
+  initialize_array(consts->dw_p_ij_cond, log0,AA_ab*AA_ij_padded);
+  c_float_t (*dw_p_ij_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond;
+  c_float_t (*dw_p_ij_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond_signs;
+
   for (int c = 0; c < A_a; c++) {
     for (int d = 0; d < A_b; d++) {
       for (int a = 0; a < A_a; a++) {
         int b = d;
-        int ind = c * AA_ab*A_b + d*AA_ab + a*A_b + b;
+        int cd = c*A_j + d;
         SignedLogExp logsumexp_result = signed_logsumexp2((a == c) ? c_f0: log0, c_f1,  p_ij_cond[c*A_b + d], -c_f1);
-        dw_p_ij_cond[ind] = logsumexp_result.result + p_ij_cond[a*A_b + b];
-        consts->dw_p_ij_cond_signs[ind] = logsumexp_result.sign;
+        dw_p_ij_cond[a][b][cd] = logsumexp_result.result + p_ij_cond[a*A_b + b];
+        dw_p_ij_cond_signs[a][b][cd] = logsumexp_result.sign;
       }
     }
   }
@@ -714,7 +708,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   }
 
   c_float_t *dv_p_ji_cond = consts->dv_p_ji_cond;
-  initialize_array(dv_p_ji_cond, log0, A_a_p_A_b*AA_ab);
+  initialize_array(consts->dv_p_ji_cond, log0, A_a_p_A_b*AA_ab);
   for (int d = 0; d < A_b; d++) {
     for (int a = 0; a < A_a; a++) {
       for (int b = 0; b < A_b; b++) {
@@ -726,16 +720,18 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
-  c_float_t *dw_p_ji_cond = consts->dw_p_ji_cond;
-  initialize_array(dw_p_ji_cond, log0, AA_ab*AA_ab);
+  c_float_t (*dw_p_ji_cond)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond;
+  c_float_t (*dw_p_ji_cond_signs)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond_signs;
+
+  initialize_array(consts->dw_p_ji_cond, log0, AA_ab*AA_ij_padded);
   for (int c = 0; c < A_a; c++) {
     for (int d = 0; d < A_b; d++) {
       for (int b = 0; b < A_b; b++) {
         int a = c;
-        int ind = c*AA_ab*A_b + d*AA_ab + b*A_a + a;
+        int cd = c*A_j + d;
         SignedLogExp logsumexp_result = signed_logsumexp2((b == d) ? c_f0: log0, c_f1, p_ji_cond[d*A_a + c], -c_f1);
-        dw_p_ji_cond[ind] = logsumexp_result.result + p_ji_cond[b*A_a + a];
-        consts->dw_p_ji_cond_signs[ind] = logsumexp_result.sign;
+        dw_p_ji_cond[b][a][cd] = logsumexp_result.result + p_ji_cond[b*A_a + a];
+        dw_p_ji_cond_signs[b][a][cd] = logsumexp_result.sign;
       }
     }
   }
