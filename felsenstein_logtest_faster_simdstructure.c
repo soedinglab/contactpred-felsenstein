@@ -9,7 +9,7 @@ int main() {
   int i = 0;
   int j = 1;
 
-  int N = 128;
+  int N = 32;
   int L = 5;
   uint8_t* msa = (uint8_t*) malloc(sizeof(u_int8_t)*N*L);
   for(int i = 0; i < L; i++) {

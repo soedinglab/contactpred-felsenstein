@@ -4,13 +4,9 @@
 #include <stdint.h>
 #include <math.h>
 
-#define c_f0 0.0
-#define N_COL 2
-#define A 20
-#define AA 400
-#define AAA 8000
-#define AAAA 160000
-#define log0 -2000
+#define c_f0 0.0f
+#define c_f1 1.0f
+#define log0 -2000.0f
 
 typedef float c_float_t;
 
@@ -186,7 +182,7 @@ typedef struct Constants {
 
   int A_i;
   int A_j;
-  int padded_AA_ij;
+  int AA_ij_padded;
 
   int L;
 

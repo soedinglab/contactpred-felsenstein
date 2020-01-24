@@ -4,7 +4,8 @@ set(HAVE_AVX2 0 CACHE BOOL "Have AVX2")
 set(HAVE_SSE4_1 0 CACHE BOOL "Have SSE4.1")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-#include(FindASan)
+include(FindASan)
+include(FindMSan)
 set(CMAKE_C_STANDARD 99)
 
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
@@ -61,4 +62,5 @@ add_executable(felsenstein_simd felsenstein_simd.h felsenstein_logspace_simd.c f
 set_target_properties(felsenstein_simd PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
 
 add_executable(felsenstein_simdalike felsenstein_simdstructure.h felsenstein_logspace_faster_simdstructure.c felsenstein_logtest_faster_simdstructure.c)
+set_target_properties(felsenstein_simdalike PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
 target_link_libraries(felsenstein_simdalike m)
