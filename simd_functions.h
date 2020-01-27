@@ -388,7 +388,9 @@ void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* res, float* res_
   add_array(res, res, max1, dim3);
 }
 
-void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3], float (*x)[dim2][dim3], float (*sign)[dim2][dim3]) {
+void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
+  float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
+  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2]) {
 
   simd_float zero_chunk = simdf32_set(0.0f);
   for(int d_p = 0; d_p < dim2; d_p++) {
@@ -397,16 +399,30 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
     }
   }
 
-  aligned_float max[dim2][dim3];
-  //col_max_ax0(dim1, dim2, dim3, max, x);
+  aligned_float max1[dim2][dim3];
+  aligned_float max2[dim2][dim3];
+
+  col_max_ax0(dim1, dim2, dim3, max1, x1, y1);
+  col_max_ax0(dim1, dim2, dim3, max2, x2, y2);
+
+  float* max1_lin = (float*) max1;
+  float* max2_lin = (float*) max2;
+  max_array(max1_lin, max1_lin, max2_lin, dim2*dim3);
 
   aligned_float tmp[dim3];
 
   for (int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
-      sub_array(tmp, x[c_p][d_p], max[d_p], dim3);
+      add_constant(tmp, x1[c_p][d_p], y1[c_p][d_p], dim3);
+      sub_array(tmp, tmp, max1[d_p], dim3);
       pow2_array(tmp, tmp, dim3);
-      mul_array(tmp, tmp, sign[c_p][d_p], dim3);
+      mul_array(tmp, tmp, sign1[c_p][d_p], dim3);
+      add_array(res[d_p], res[d_p], tmp, dim3);
+
+      add_constant(tmp, x2[c_p][d_p], y2[c_p][d_p], dim3);
+      sub_array(tmp, tmp, max1[d_p], dim3);
+      pow2_array(tmp, tmp, dim3);
+      mul_array(tmp, tmp, sign2[c_p][d_p], dim3);
       add_array(res[d_p], res[d_p], tmp, dim3);
     }
   }
@@ -415,7 +431,7 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
     sign_array(res_signs[d_p], res[d_p], dim3);
     abs_array(res[d_p], res[d_p], dim3);
     log2_array(res[d_p], res[d_p], dim3);
-    add_array(res[d_p], res[d_p], max[d_p], dim3);
+    add_array(res[d_p], res[d_p], max1[d_p], dim3);
   }
 }
 
