@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "simd.h"
+#include "simd_functions.h"
 
 #define pad_float(N)  (N + (VECSIZE_FLOAT-1))/VECSIZE_FLOAT*VECSIZE_FLOAT
 
@@ -37,7 +38,7 @@ void initialize_leaf(Node* leaf, Constants* consts) {
   initialize_array(leaf->data->dw_Ln_ab_signs, c_f1, AA_ab*AA_ij_padded);
 }
 
-void initialize_buffer(NodeBuffer* buffer, Constants* consts) {
+void initialize_nodebuffer(NodeBuffer* buffer, Constants* consts) {
 
   int A_a = consts->A_a;
   int A_b = consts->A_b;
@@ -55,15 +56,40 @@ void initialize_buffer(NodeBuffer* buffer, Constants* consts) {
   buffer->dv_Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*A_a_p_A_b*A_b);
   buffer->dv_Ln_jb_signs = (c_float_t*) malloc(sizeof(c_float_t)*A_a_p_A_b*A_b);
 
-  buffer->dw_Ln = (c_float_t*) malloc(sizeof(c_float_t)*AA_ij_padded);
-  buffer->dw_Ln_signs = (c_float_t*) malloc(sizeof(c_float_t)*AA_ij_padded);
-  buffer->dw_Ln_ia = (c_float_t*) malloc(sizeof(c_float_t)*A_a*AA_ij_padded);
-  buffer->dw_Ln_ia_signs = (c_float_t*) malloc(sizeof(c_float_t)*A_a*AA_ij_padded);
-  buffer->dw_Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*A_b*AA_ij_padded);
-  buffer->dw_Ln_jb_signs = (c_float_t*) malloc(sizeof(c_float_t)*A_b*AA_ij_padded);
+  buffer->dw_Ln = malloc_simd_float(sizeof(c_float_t)*AA_ij_padded);
+  buffer->dw_Ln_signs = malloc_simd_float(sizeof(c_float_t)*AA_ij_padded);
+  buffer->dw_Ln_ia = malloc_simd_float(sizeof(c_float_t)*A_a*AA_ij_padded);
+  buffer->dw_Ln_ia_signs = malloc_simd_float(sizeof(c_float_t)*A_a*AA_ij_padded);
+  buffer->dw_Ln_jb = malloc_simd_float(sizeof(c_float_t)*A_b*AA_ij_padded);
+  buffer->dw_Ln_jb_signs = malloc_simd_float(sizeof(c_float_t)*A_b*AA_ij_padded);
+
+  buffer->dw_mut0_buffer = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+  buffer->dw_mut1_buffer = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+  buffer->dw_mut1_sign_buffer = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+  buffer->dw_mut2_buffer = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+
 }
 
-void deinitialize_buffer(NodeBuffer* buffer) {
+void initialize_buffer(Buffer* buffer, Constants* consts) {
+  int AA_ij_padded = consts->AA_ij_padded;
+  buffer->left = malloc(sizeof(NodeBuffer));
+  initialize_nodebuffer(buffer->left, consts);
+  buffer->right = malloc(sizeof(NodeBuffer));
+  initialize_nodebuffer(buffer->right, consts);
+  
+  buffer->dw_left_Lab =  malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+  buffer->dw_right_Lab = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+}
+
+void deinitialize_buffer(Buffer* buffer) {
+  deinitialize_nodebuffer(buffer->left);
+  deinitialize_nodebuffer(buffer->right);
+
+  free(buffer->dw_left_Lab);
+  free(buffer->dw_right_Lab);
+}
+
+void deinitialize_nodebuffer(NodeBuffer* buffer) {
   free(buffer->Ln_ia);
   free(buffer->Ln_jb);
 
@@ -277,6 +303,12 @@ void initialize_node(Node* node, Constants* consts) {
   data->dw_Ln_ab = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab*AA_ij_padded);
   data->dw_Ln_ab_signs = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab*AA_ij_padded);
   node->data = data;
+
+  node->log_1mp_left = log2(1 - node->phi_left);
+  node->log_p_left = log2(node->phi_left);
+
+  node->log_1mp_right = log2(1 - node->phi_right);
+  node->log_p_right = log2(node->phi_right);
 }
 
 void deinitialize_node(Node* node) {
@@ -289,7 +321,7 @@ void deinitialize_node(Node* node) {
   free(node->data);
 }
 
-void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, c_float_t* dv_L_ab_signs, c_float_t* dw_L_ab, c_float_t* dw_L_ab_signs, int a, int b){
+void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, c_float_t* dv_L_ab_signs, c_float_t* dw_L_ab, c_float_t* dw_L_ab_signs, int a, int b){
 
   int A_i = consts->A_a;
   int A_a = A_i;
@@ -307,8 +339,6 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
   c_float_t* Ln_jb = child_buffer->Ln_jb;
   c_float_t (*Ln_ab)[A_j] = (c_float_t (*)[A_j]) child_data->Ln_ab;
 
-  c_float_t log_r = log(phi);
-  c_float_t log_1mr = log(1 - phi);
   c_float_t mut2 = 2*log_1mr + Ln;
   c_float_t mut1 = log_r + log_1mr + logsumexp2(Ln_ia[a], Ln_jb[b]);
   c_float_t mut0 = 2*log_r + Ln_ab[a][b];
@@ -342,7 +372,25 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
   c_float_t (*dw_Ln_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) child_data->dw_Ln_ab;
   c_float_t (*dw_Ln_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) child_data->dw_Ln_ab_signs;
 
+  add_constant(buffer->dw_mut2_buffer,  child_buffer->dw_Ln, 2*log_1mr, AA_ij_padded);
+  signedlogsumexp2_array(buffer->dw_mut1_buffer, buffer->dw_mut1_sign_buffer,
+    dw_Ln_ia[a], dw_Ln_ia_signs[a],
+    dw_Ln_jb[b],  dw_Ln_jb_signs[b],
+    AA_ij_padded
+    );
+  add_constant(buffer->dw_mut1_buffer, buffer->dw_mut1_buffer, log_r + log_1mr,  AA_ij_padded);
+  add_constant(buffer->dw_mut0_buffer, dw_Ln_ab[a][b], 2*log_r, AA_ij_padded);
+  signedlogsumexp3_array(dw_L_ab, dw_L_ab_signs,
+    buffer->dw_mut2_buffer, child_buffer->dw_Ln_signs,
+    buffer->dw_mut1_buffer, buffer->dw_mut1_sign_buffer,
+    buffer->dw_mut0_buffer, dw_Ln_ab_signs[a][b],
+    AA_ij_padded
+  );
+
+  /*
+
   for (int cd = 0; cd < AA_ab; cd++) {
+
     c_float_t ddw_mut2 = 2*log_1mr + child_buffer->dw_Ln[cd];
     c_float_t ddw_mut2_sign = child_buffer->dw_Ln_signs[cd];
 
@@ -361,6 +409,7 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
     dw_L_ab[cd] = mut_logsumexp.result;
     dw_L_ab_signs[cd] = mut_logsumexp.sign;
   }
+   */
 }
 
 void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
@@ -414,15 +463,14 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
       if (node->left != NULL) {
         initialize_array(dv_left_Lab, c_f0, A_a_p_A_b);
         initialize_array(dw_left_Lab, c_f0, AA_ij_padded);
-        compute_Ln_branch(node->left, node->phi_left, buf->left, consts, &left_Lab, dv_left_Lab, dv_left_Lab_signs,
+        compute_Ln_branch(node->left, node->log_p_left, node->log_1mp_left, buf->left, consts, &left_Lab, dv_left_Lab, dv_left_Lab_signs,
                           dw_left_Lab, dw_left_Lab_signs, a, b);
       }
       if (node->right != NULL) {
         initialize_array(dv_right_Lab, c_f0, A_a_p_A_b);
         initialize_array(dw_right_Lab, c_f0, AA_ij_padded);
-        compute_Ln_branch(node->right, node->phi_right, buf->right, consts, &right_Lab, dv_right_Lab,
-                          dv_right_Lab_signs, dw_right_Lab, dw_right_Lab_signs, a,
-                          b);
+        compute_Ln_branch(node->right, node->log_p_right, node->log_1mp_right, buf->right, consts, &right_Lab, dv_right_Lab,
+                          dv_right_Lab_signs, dw_right_Lab, dw_right_Lab_signs, a, b);
       }
 
       c_float_t Ln_ab = left_Lab + right_Lab;
@@ -445,6 +493,16 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
       c_float_t (*dw_Ln_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) node_data->dw_Ln_ab;
       c_float_t (*dw_Ln_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) node_data->dw_Ln_ab_signs;
 
+      //TODO AVX implementation
+
+      add_constant(buf->dw_left_Lab, dw_left_Lab, right_Lab, AA_ij_padded);
+      add_constant(buf->dw_right_Lab, dw_right_Lab, left_Lab, AA_ij_padded);
+      signedlogsumexp2_array(dw_Ln_ab[a][b], dw_Ln_ab_signs[a][b],
+        buf->dw_left_Lab, dw_left_Lab_signs,
+        buf->dw_right_Lab, dw_right_Lab_signs,
+        AA_ij_padded
+        );
+      /*
       for (int cd = 0; cd < AA_ab; cd++) {
         c_float_t left_deriv_term = dw_left_Lab[cd] + right_Lab;
         c_float_t left_deriv_sign = dw_left_Lab_signs[cd];
@@ -455,6 +513,7 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
         dw_Ln_ab[a][b][cd] = logsumexp_result.result;
         dw_Ln_ab_signs[a][b][cd] = logsumexp_result.sign;
       }
+       */
     }
   }
   if(node->left != NULL) {

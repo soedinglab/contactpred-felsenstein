@@ -83,10 +83,7 @@ int main() {
   initialize_constants(consts);
 
   Buffer* buffer = malloc(sizeof(Buffer));
-  buffer->left = malloc(sizeof(NodeBuffer));
-  initialize_buffer(buffer->left, consts);
-  buffer->right = malloc(sizeof(NodeBuffer));
-  initialize_buffer(buffer->right, consts);
+  initialize_buffer(buffer, consts);
 
   c_float_t fx = calculate_fx_grad(x, grad, consts, buffer);
   printf("fx= %e\n", fx);
@@ -125,10 +122,7 @@ int main() {
   free(x);
   free(grad);
 
-  deinitialize_buffer(buffer->left);
-  deinitialize_buffer(buffer->right);
-  free(buffer->left);
-  free(buffer->right);
+  deinitialize_buffer(buffer);
   free(buffer);
 
   deinitialize_constants(consts);

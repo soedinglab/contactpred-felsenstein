@@ -162,6 +162,14 @@ static inline void add_array(c_float_t* out, c_float_t* x, c_float_t* y, size_t 
   }
 }
 
+static inline void add_constant(c_float_t* out, c_float_t* x, c_float_t constant, size_t N) {
+  simd_float const_chunk = simdf32_set(constant);
+  for (int n = 0; n < N; n+=VECSIZE_FLOAT) {
+    simd_float x_chunk = simdf32_load(x + n);
+    simdf32_store(out + n,  simdf32_add(x_chunk, const_chunk));
+  }
+}
+
 static inline void sub_array(c_float_t* out, c_float_t* x, c_float_t* y, size_t N) {
   for (int n = 0; n < N; n+=VECSIZE_FLOAT) {
     simd_float x_chunk = simdf32_load(x + n);

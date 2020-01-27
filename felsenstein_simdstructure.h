@@ -132,8 +132,15 @@ typedef struct Node {
   struct Node* right;
 
   int seq_id;
+
+
   c_float_t phi_left;
+  c_float_t log_1mp_left;
+  c_float_t log_p_left;
+
   c_float_t phi_right;
+  c_float_t log_1mp_right;
+  c_float_t log_p_right;
 
   NodePrecomputation* data;
 
@@ -171,11 +178,21 @@ typedef struct NodeBuffer {
   c_float_t* dw_Ln_jb;
   c_float_t* dw_Ln_jb_signs;
 
+  // temporary buffer
+  c_float_t* dw_mut0_buffer;
+  c_float_t* dw_mut1_buffer;
+  c_float_t* dw_mut1_sign_buffer;
+  c_float_t* dw_mut2_buffer;
+
 } NodeBuffer;
 
 typedef struct Buffer {
   NodeBuffer* left;
   NodeBuffer* right;
+
+  c_float_t* dw_left_Lab;
+  c_float_t* dw_right_Lab;
+
 } Buffer;
 
 typedef struct Constants {
@@ -225,9 +242,11 @@ void initialize_constants(Constants* consts);
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w);
 void deinitialize_constants(Constants* consts);
 
-void initialize_buffer(NodeBuffer*, Constants* consts);
+void initialize_buffer(Buffer*, Constants* consts);
+void initialize_nodebuffer(NodeBuffer*, Constants* consts);
 void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* consts);
-void deinitialize_buffer(NodeBuffer*);
+void deinitialize_nodebuffer(NodeBuffer*);
+void deinitialize_buffer(Buffer*);
 
 c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
