@@ -284,16 +284,20 @@ static inline void signedlogsumexp3_array(c_float_t* out, c_float_t* out_signs, 
 
 
 
-static inline void col_max_ax01(float *max, int dim1, int dim2, int dim3, float (*data)[dim2][dim3]) {
+static inline void col_max_ax01(float *max, int dim1, int dim2, int dim3,
+  float (*x)[dim2][dim3], float(*x_add)[dim2]) {
 
+  simd_float min_chunk = simdf32_set(-FLT_MAX);
   for(int cd = 0; cd < dim3; cd += VECSIZE_FLOAT) {
-    simd_float chunk = simdf32_load(&data[0][0][cd]);
-    simdf32_store(max + cd, chunk);
+    simdf32_store(max + cd, min_chunk);
   }
+
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
+      simd_float const_chunk = simdf32_set(x_add[c_p][d_p]);
       for(int cd = 0; cd < dim3; cd+=VECSIZE_FLOAT) {
-        simd_float chunk = simdf32_load(&data[c_p][d_p][cd]);
+        simd_float x_chunk = simdf32_load(&x[c_p][d_p][cd]);
+        simd_float chunk = simdf32_add(x_chunk, const_chunk);
         simd_float max_chunk = simdf32_load(max + cd);
         simd_float new_max = simdf32_max(chunk, max_chunk);
         simdf32_store(max + cd, new_max);
@@ -347,31 +351,45 @@ void print_float_array(float* arr, int N) {
   printf("\n");
 }
 
-void logsumexp_matrix_ax01(float* res, float* res_signs, int dim1, int dim2, int dim3, float (*x)[dim2][dim3], float (*sign)[dim2][dim3]) {
+void logsumexp_matrix_ax01(float* res, float* res_signs, int dim1, int dim2, int dim3,
+  float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
+  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2]) {
 
   simd_float zero_chunk = simdf32_set(0.0f);
   for(int cd = 0; cd < dim3; cd+= VECSIZE_FLOAT) {
     simdf32_store(res + cd, zero_chunk);
   }
-  aligned_float max[dim3];
-  col_max_ax01(max, dim1, dim2, dim3, x);
+  aligned_float max1[dim3];
+  aligned_float max2[dim3];
+  col_max_ax01(max1, dim1, dim2, dim3, x1, y1);
+  col_max_ax01(max2, dim1, dim2, dim3, x2, y2);
+  max_array(max1, max1, max2, dim3);
 
   aligned_float tmp[dim3];
 
   for (int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
-      sub_array(tmp, x[c_p][d_p], max, dim3);
+
+      float x_const = y1[c_p][d_p];
+      add_constant(tmp, x1[c_p][d_p], x_const, dim3);
+      sub_array(tmp, tmp, max1, dim3);
       pow2_array(tmp, tmp, dim3);
-      mul_array(tmp, tmp, sign[c_p][d_p], dim3);
+      mul_array(tmp, tmp, sign1[c_p][d_p], dim3);
+      add_array(res, res, tmp, dim3);
+
+      float y_const = y2[c_p][d_p];
+      add_constant(tmp, x2[c_p][d_p], y_const, dim3);
+      sub_array(tmp, tmp, max1, dim3);
+      pow2_array(tmp, tmp, dim3);
+      mul_array(tmp, tmp, sign2[c_p][d_p], dim3);
       add_array(res, res, tmp, dim3);
     }
   }
 
   sign_array(res_signs, res, dim3);
   abs_array(res, res, dim3);
-  print_float_array(res_signs, 4);
   log2_array(res, res, dim3);
-  add_array(res, res, max, dim3);
+  add_array(res, res, max1, dim3);
 }
 
 void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3], float (*x)[dim2][dim3], float (*sign)[dim2][dim3]) {

@@ -76,7 +76,7 @@ void initialize_buffer(Buffer* buffer, Constants* consts) {
   initialize_nodebuffer(buffer->left, consts);
   buffer->right = malloc(sizeof(NodeBuffer));
   initialize_nodebuffer(buffer->right, consts);
-  
+
   buffer->dw_left_Lab =  malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
   buffer->dw_right_Lab = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
 }
@@ -187,6 +187,12 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     buffer->dv_Ln_signs[lc] = logsumexp_result.sign;
   }
 
+  logsumexp_matrix_ax01(buffer->dw_Ln, buffer->dw_Ln_signs,
+    A_i, A_j, AA_ij_padded,
+    dw_Ln_ab, dw_Ln_ab_signs, p_ab,
+    dw_p_ab, dw_p_ab_signs, Ln_ab
+    );
+  /*
   for(int cd = 0; cd < AA_ab; cd++) {
     for(int c_p = 0; c_p < A_a; c_p++) {
       for(int d_p = 0; d_p < A_b; d_p++) {
@@ -201,6 +207,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     buffer->dw_Ln[cd] = logsumexp_result.result;
     buffer->dw_Ln_signs[cd] = logsumexp_result.sign;
   }
+   */
 
   // p(Xm|a, .)
   for(int a = 0; a < A_a; a++) {
