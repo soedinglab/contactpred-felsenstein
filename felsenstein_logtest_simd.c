@@ -74,10 +74,10 @@ int main() {
   consts->L = L;
   consts->i = i;
   consts->j = j;
-  consts->A_a = A_a;
+  consts->A_i = A_a;
   consts->A_b = A_b;
-  consts->A_a_p_A_b = A_a_p_A_b;
-  consts->AA_ab = AA_ab;
+  consts->A_i_p_A_j = A_a_p_A_b;
+  consts->AA_ij = AA_ab;
   initialize_constants(consts);
 
   Buffer* buffer = malloc(sizeof(Buffer));

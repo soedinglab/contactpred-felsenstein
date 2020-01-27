@@ -199,6 +199,8 @@ typedef struct Constants {
 
   int A_i;
   int A_j;
+  int A_i_p_A_j;
+  int AA_ij;
   int AA_ij_padded;
 
   int L;
@@ -223,11 +225,6 @@ typedef struct Constants {
 
   Node* phylo_tree;
   uint8_t* msa;
-
-  int A_a;
-  int A_b;
-  int A_a_p_A_b;
-  int AA_ab;
 
   int i;
   int j;

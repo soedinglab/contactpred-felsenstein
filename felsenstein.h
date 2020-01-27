@@ -208,10 +208,10 @@ typedef struct Constants {
   Node* phylo_tree;
   uint8_t* msa;
 
-  int A_a;
+  int A_i;
   int A_b;
-  int A_a_p_A_b;
-  int AA_ab;
+  int A_i_p_A_j;
+  int AA_ij;
 
   int i;
   int j;

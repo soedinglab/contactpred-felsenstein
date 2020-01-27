@@ -6,10 +6,10 @@
 
 void initialize_leaf(Node* leaf, Constants* consts) {
 
-  int A_a = consts->A_a;
+  int A_a = consts->A_i;
   int A_b = consts->A_b;
-  int AA_ab = consts->AA_ab;
-  int A_a_p_A_b = consts->A_a_p_A_b;
+  int AA_ab = consts->AA_ij;
+  int A_a_p_A_b = consts->A_i_p_A_j;
 
   uint8_t* msa = consts->msa;
   int L = consts->L;
@@ -40,10 +40,10 @@ size_t pad_float(size_t orig) {
 
 void initialize_buffer(NodeBuffer* buffer, Constants* consts) {
 
-  int A_a = consts->A_a;
+  int A_a = consts->A_i;
   int A_b = consts->A_b;
-  int A_a_p_A_b = consts->A_a_p_A_b;
-  int AA_ab = consts->AA_ab;
+  int A_a_p_A_b = consts->A_i_p_A_j;
+  int AA_ab = consts->AA_ij;
   buffer->Ln_ia = (c_float_t*) malloc_simd_float(pad_float(sizeof(c_float_t)*A_a));
   buffer->Ln_jb = (c_float_t*) malloc(sizeof(c_float_t)*A_b);
 
@@ -83,10 +83,10 @@ void deinitialize_buffer(NodeBuffer* buffer) {
 
 void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* consts){
 
-  int A_a = consts->A_a;
+  int A_a = consts->A_i;
   int A_b = consts->A_b;
-  int AA_ab = consts->AA_ab;
-  int A_a_p_A_b = consts->A_a_p_A_b;
+  int AA_ab = consts->AA_ij;
+  int A_a_p_A_b = consts->A_i_p_A_j;
 
   c_float_t *p_ab = consts->p_ab;
   c_float_t *dv_p_ab = consts->dv_p_ab;
@@ -262,8 +262,8 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
 
 void initialize_node(Node* node, Constants* consts) {
 
-  int AA_ab = consts->AA_ab;
-  int A_a_p_A_b = consts->A_a_p_A_b;
+  int AA_ab = consts->AA_ij;
+  int A_a_p_A_b = consts->A_i_p_A_j;
 
   NodePrecomputation* data = malloc(sizeof(NodePrecomputation));
   data->Ln_ab = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab);
@@ -286,10 +286,10 @@ void deinitialize_node(Node* node) {
 
 void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, int8_t* dv_L_ab_signs, c_float_t* dw_L_ab, int8_t* dw_L_ab_signs, int a, int b){
 
-  int A_a = consts->A_a;
+  int A_a = consts->A_i;
   int A_b = consts->A_b;
-  int AA_ab = consts->AA_ab;
-  int A_a_p_A_b = consts->A_a_p_A_b;
+  int AA_ab = consts->AA_ij;
+  int A_a_p_A_b = consts->A_i_p_A_j;
 
   NodePrecomputation *child_data = node->data;
   NodeBuffer* child_buffer = buffer;
@@ -344,10 +344,10 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
 
 void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 
-  int A_a = consts->A_a;
+  int A_a = consts->A_i;
   int A_b = consts->A_b;
-  int AA_ab = consts->AA_ab;
-  int A_a_p_A_b = consts->A_a_p_A_b;
+  int AA_ab = consts->AA_ij;
+  int A_a_p_A_b = consts->A_i_p_A_j;
 
   if (node->left == NULL && node->right == NULL) {
     // this is a leaf node
@@ -440,10 +440,10 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 
 c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buffer* buf) {
 
-  int A_a = consts->A_a;
+  int A_a = consts->A_i;
   int A_b = consts->A_b;
-  int AA_ab = consts->AA_ab;
-  int A_a_p_A_b = consts->A_a_p_A_b;
+  int AA_ab = consts->AA_ij;
+  int A_a_p_A_b = consts->A_i_p_A_j;
 
   precalculate_constants(consts, x, x + A_a_p_A_b);
   Node* root = consts->phylo_tree;
@@ -490,8 +490,8 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
 }
 
 void initialize_constants(Constants* consts) {
-  int AA_ab = consts->AA_ab;
-  int A_a_p_A_b = consts->A_a_p_A_b;
+  int AA_ab = consts->AA_ij;
+  int A_a_p_A_b = consts->A_i_p_A_j;
 
   consts->p_ab = (c_float_t*) malloc(sizeof(c_float_t) * AA_ab);
   consts->dv_p_ab = (c_float_t*) malloc(sizeof(c_float_t) * A_a_p_A_b*AA_ab);
@@ -530,10 +530,10 @@ void deinitialize_constants(Constants* consts) {
 
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
 
-  int A_a = consts->A_a;
+  int A_a = consts->A_i;
   int A_b = consts->A_b;
-  int A_a_p_A_b = consts->A_a_p_A_b;
-  int AA_ab = consts->AA_ab;
+  int A_a_p_A_b = consts->A_i_p_A_j;
+  int AA_ab = consts->AA_ij;
 
   // p_ab related precomputations
   c_float_t total_sum = 0;

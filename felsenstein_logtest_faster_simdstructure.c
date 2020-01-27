@@ -41,10 +41,10 @@ int main() {
     nodes[n].seq_id = n - N + 1;
   }
 
-  int A_a = 3;
-  int A_b = 4;
-  int A_a_p_A_b = A_a + A_b;
-  int AA_ab = A_a * A_b;
+  int A_i = 3;
+  int A_j = 4;
+  int A_a_p_A_b = A_i + A_j;
+  int AA_ab = A_i * A_j;
 
   c_float_t* x = (c_float_t*) calloc(A_a_p_A_b + AA_ab, sizeof(c_float_t));
   for(int idx = 0; idx < A_a_p_A_b; idx++) {
@@ -53,13 +53,13 @@ int main() {
   x[0] = 1;
   x[1] = 0;
   x[2] = 0;
-  x[A_a + 0] = 0;
-  x[A_a + 1] = 0;
-  x[A_a + 2] = 0;
+  x[A_i + 0] = 0;
+  x[A_i + 1] = 0;
+  x[A_i + 2] = 0;
 
   for(int a = 0; a < 3; a++) {
     for(int b = 0; b < 3; b++) {
-      x[A_a_p_A_b + a*A_b + b] = a<b ? 1 : 2;
+      x[A_a_p_A_b + a * A_j + b] = a < b ? 1 : 2;
     }
   }
 
@@ -74,12 +74,10 @@ int main() {
   consts->L = L;
   consts->i = i;
   consts->j = j;
-  consts->A_a = A_a;
-  consts->A_i = A_a;
-  consts->A_j = A_b;
-  consts->A_b = A_b;
-  consts->A_a_p_A_b = A_a_p_A_b;
-  consts->AA_ab = AA_ab;
+  consts->A_i = A_i;
+  consts->A_j = A_j;
+  consts->A_i_p_A_j = A_a_p_A_b;
+  consts->AA_ij = AA_ab;
   initialize_constants(consts);
 
   Buffer* buffer = malloc(sizeof(Buffer));
@@ -103,8 +101,8 @@ int main() {
     pos++;
   }
 
-  for(int c = 0; c < A_a; c++) {
-    for(int d = 0; d < A_b; d++) {
+  for(int c = 0; c < A_i; c++) {
+    for(int d = 0; d < A_j; d++) {
       calculate_fx_grad(x, grad, consts, buffer);
       c_float_t target_grad = grad[pos];
 
