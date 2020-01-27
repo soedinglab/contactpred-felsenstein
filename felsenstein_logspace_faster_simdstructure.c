@@ -139,8 +139,8 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
   c_float_t (* p_ab)[A_j] = (c_float_t (*)[A_j]) consts->p_ab;
   c_float_t (* dw_p_ij_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond;
   c_float_t (* dw_p_ij_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond_signs;
-  c_float_t (* dw_p_ji_cond)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond;
-  c_float_t (* dw_p_ji_cond_signs)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond_signs;
+  c_float_t (* dw_p_ji_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond;
+  c_float_t (* dw_p_ji_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond_signs;
 
   c_float_t (*dw_Ln_ia)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_ia;
   c_float_t (*dw_Ln_ia_signs)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_ia_signs;
@@ -187,8 +187,8 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     buffer->dv_Ln_signs[lc] = logsumexp_result.sign;
   }
 
-  logsumexp_matrix_ax01(buffer->dw_Ln, buffer->dw_Ln_signs,
-    A_i, A_j, AA_ij_padded,
+  logsumexp_matrix_ax01(A_i, A_j, AA_ij_padded,
+    buffer->dw_Ln, buffer->dw_Ln_signs,
     dw_Ln_ab, dw_Ln_ab_signs, p_ab,
     dw_p_ab, dw_p_ab_signs, Ln_ab
     );
@@ -237,6 +237,13 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     }
   }
 
+  logsumexp_matrix_ax1(A_i, A_j, AA_ij_padded,
+    dw_Ln_ia, dw_Ln_ia_signs,
+    dw_Ln_ab, dw_Ln_ab_signs, p_ji_cond,
+    dw_p_ji_cond, dw_p_ji_cond_signs, Ln_ab
+  );
+
+  /*
   for(int cd = 0; cd < AA_ab; cd++) {
     for (int a = 0; a < A_a; a++) {
       for (int d_p = 0; d_p < A_b; d_p++) {
@@ -251,6 +258,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
       dw_Ln_ia_signs[a][cd] = logsumexp_result.sign;
     }
   }
+   */
 
   // d/dp p(Xm|.,b)
   for(int b = 0; b < A_b; b++) {
@@ -785,8 +793,8 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
-  c_float_t (*dw_p_ji_cond)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond;
-  c_float_t (*dw_p_ji_cond_signs)[A_i][AA_ij_padded] = (c_float_t (*)[A_i][AA_ij_padded]) consts->dw_p_ji_cond_signs;
+  c_float_t (*dw_p_ji_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond;
+  c_float_t (*dw_p_ji_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond_signs;
 
   initialize_array(consts->dw_p_ji_cond, log0, AA_ab*AA_ij_padded);
   for (int c = 0; c < A_a; c++) {

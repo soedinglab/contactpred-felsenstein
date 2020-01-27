@@ -281,10 +281,7 @@ static inline void signedlogsumexp3_array(c_float_t* out, c_float_t* out_signs, 
   add_array(out, max, exp_x, N);
 }
 
-
-
-
-static inline void col_max_ax01(float *max, int dim1, int dim2, int dim3,
+static inline void col_max_ax01(int dim1, int dim2, int dim3, float *max,
   float (*x)[dim2][dim3], float(*x_add)[dim2]) {
 
   simd_float min_chunk = simdf32_set(-FLT_MAX);
@@ -306,7 +303,8 @@ static inline void col_max_ax01(float *max, int dim1, int dim2, int dim3,
   }
 }
 
-static inline void col_max_ax0(int dim1, int dim2, int dim3, float (*max)[dim3], float (*data)[dim2][dim3]) {
+static inline void col_max_ax0(int dim1, int dim2, int dim3, float (*max)[dim3],
+  float (*x)[dim2][dim3], float (*x_add)[dim2]) {
   simd_float min_chunk = simdf32_set(-FLT_MAX);
   for(int d_p = 0; d_p < dim2; d_p++) {
     for(int cd = 0; cd < dim3; cd += VECSIZE_FLOAT) {
@@ -315,8 +313,10 @@ static inline void col_max_ax0(int dim1, int dim2, int dim3, float (*max)[dim3],
   }
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
+      simd_float const_chunk = simdf32_set(x_add[c_p][d_p]);
       for(int cd = 0; cd < dim3; cd+=VECSIZE_FLOAT) {
-        simd_float chunk = simdf32_load(&data[c_p][d_p][cd]);
+        simd_float x_chunk = simdf32_load(&x[c_p][d_p][cd]);
+        simd_float chunk = simdf32_add(x_chunk, const_chunk);
         simd_float max_chunk = simdf32_load(&max[d_p][cd]);
         simd_float new_max = simdf32_max(chunk, max_chunk);
         simdf32_store(&max[d_p][cd], new_max);
@@ -325,7 +325,8 @@ static inline void col_max_ax0(int dim1, int dim2, int dim3, float (*max)[dim3],
   }
 }
 
-static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3], float (*data)[dim2][dim3]) {
+static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3],
+  float (*x)[dim2][dim3], float (*x_add)[dim2]) {
   simd_float min_chunk = simdf32_set(-FLT_MAX);
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int cd = 0; cd < dim3; cd += VECSIZE_FLOAT) {
@@ -334,8 +335,10 @@ static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3],
   }
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
+      simd_float const_chunk = simdf32_set(x_add[c_p][d_p]);
       for(int cd = 0; cd < dim3; cd+=VECSIZE_FLOAT) {
-        simd_float chunk = simdf32_load(&data[c_p][d_p][cd]);
+        simd_float x_chunk = simdf32_load(&x[c_p][d_p][cd]);
+        simd_float chunk = simdf32_add(x_chunk, const_chunk);
         simd_float max_chunk = simdf32_load(&max[c_p][cd]);
         simd_float new_max = simdf32_max(chunk, max_chunk);
         simdf32_store(&max[c_p][cd], new_max);
@@ -344,14 +347,7 @@ static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3],
   }
 }
 
-void print_float_array(float* arr, int N) {
-  for(int i = 0; i < N; i++) {
-    printf("%f ", arr[i]);
-  }
-  printf("\n");
-}
-
-void logsumexp_matrix_ax01(float* res, float* res_signs, int dim1, int dim2, int dim3,
+void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* res, float* res_signs,
   float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
   float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2]) {
 
@@ -361,8 +357,8 @@ void logsumexp_matrix_ax01(float* res, float* res_signs, int dim1, int dim2, int
   }
   aligned_float max1[dim3];
   aligned_float max2[dim3];
-  col_max_ax01(max1, dim1, dim2, dim3, x1, y1);
-  col_max_ax01(max2, dim1, dim2, dim3, x2, y2);
+  col_max_ax01(dim1, dim2, dim3, max1, x1, y1);
+  col_max_ax01(dim1, dim2, dim3, max2, x2, y2);
   max_array(max1, max1, max2, dim3);
 
   aligned_float tmp[dim3];
@@ -370,15 +366,15 @@ void logsumexp_matrix_ax01(float* res, float* res_signs, int dim1, int dim2, int
   for (int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
 
-      float x_const = y1[c_p][d_p];
-      add_constant(tmp, x1[c_p][d_p], x_const, dim3);
+      float x1_const = y1[c_p][d_p];
+      add_constant(tmp, x1[c_p][d_p], x1_const, dim3);
       sub_array(tmp, tmp, max1, dim3);
       pow2_array(tmp, tmp, dim3);
       mul_array(tmp, tmp, sign1[c_p][d_p], dim3);
       add_array(res, res, tmp, dim3);
 
-      float y_const = y2[c_p][d_p];
-      add_constant(tmp, x2[c_p][d_p], y_const, dim3);
+      float x2_const = y2[c_p][d_p];
+      add_constant(tmp, x2[c_p][d_p], x2_const, dim3);
       sub_array(tmp, tmp, max1, dim3);
       pow2_array(tmp, tmp, dim3);
       mul_array(tmp, tmp, sign2[c_p][d_p], dim3);
@@ -402,7 +398,7 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
   }
 
   aligned_float max[dim2][dim3];
-  col_max_ax0(dim1, dim2, dim3, max, x);
+  //col_max_ax0(dim1, dim2, dim3, max, x);
 
   aligned_float tmp[dim3];
 
@@ -423,34 +419,52 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
   }
 }
 
-void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3], float (*x)[dim2][dim3], float (*sign)[dim2][dim3]) {
+void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
+  float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
+  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2]) {
 
   simd_float zero_chunk = simdf32_set(0.0f);
-  for(int c_p = 0; c_p < dim2; c_p++) {
+  for(int c_p = 0; c_p < dim1; c_p++) {
     for(int cd = 0; cd < dim3; cd+= VECSIZE_FLOAT) {
       simdf32_store(&res[c_p][cd], zero_chunk);
     }
   }
 
-  aligned_float max[dim1][dim3];
-  col_max_ax1(dim1, dim2, dim3, max, x);
+  aligned_float max1[dim1][dim3];
+  aligned_float max2[dim1][dim3];
+  col_max_ax1(dim1, dim2, dim3, max1, x1, y1);
+  col_max_ax1(dim1, dim2, dim3, max2, x2, y2);
+
+  float* max1_lin = (float*) max1;
+  float* max2_lin = (float*) max2;
+  max_array(max1_lin, max1_lin, max2_lin, dim1*dim3);
 
   aligned_float tmp[dim3];
 
   for (int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
-      sub_array(tmp, x[c_p][d_p], max[c_p], dim3);
+
+      float x1_const = y1[c_p][d_p];
+      add_constant(tmp, x1[c_p][d_p], x1_const, dim3);
+      sub_array(tmp, tmp, max1[c_p], dim3);
       pow2_array(tmp, tmp, dim3);
-      mul_array(tmp, tmp, sign[c_p][d_p], dim3);
+      mul_array(tmp, tmp, sign1[c_p][d_p], dim3);
+      add_array(res[c_p], res[c_p], tmp, dim3);
+
+      float x2_const = y2[c_p][d_p];
+      add_constant(tmp, x2[c_p][d_p], x2_const, dim3);
+      sub_array(tmp, tmp, max1[c_p], dim3);
+      pow2_array(tmp, tmp, dim3);
+      mul_array(tmp, tmp, sign2[c_p][d_p], dim3);
       add_array(res[c_p], res[c_p], tmp, dim3);
     }
   }
 
-  for(int c_p = 0; c_p < dim2; c_p++) {
+  for(int c_p = 0; c_p < dim1; c_p++) {
     sign_array(res_signs[c_p], res[c_p], dim3);
     abs_array(res[c_p], res[c_p], dim3);
     log2_array(res[c_p], res[c_p], dim3);
-    add_array(res[c_p], res[c_p], max[c_p], dim3);
+    add_array(res[c_p], res[c_p], max1[c_p], dim3);
   }
 }
 
