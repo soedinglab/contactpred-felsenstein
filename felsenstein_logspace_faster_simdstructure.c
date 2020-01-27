@@ -125,7 +125,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
   c_float_t *dv_p_ij_cond = consts->dv_p_ij_cond;
   c_float_t *dv_p_ij_cond_signs = consts->dv_p_ij_cond_signs;
 
-  c_float_t *p_ji_cond = consts->p_ji_cond;
+  c_float_t (*p_ji_cond)[A_j] =  (c_float_t (*)[A_j]) consts->p_ji_cond;
   c_float_t *dv_p_ji_cond = consts->dv_p_ji_cond;
   c_float_t *dv_p_ji_cond_signs = consts->dv_p_ji_cond_signs;
 
@@ -212,7 +212,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
   // p(Xm|a, .)
   for(int a = 0; a < A_a; a++) {
     for(int d = 0; d < A_b; d++) {
-      log_buffer_A_b[d] = data->Ln_ab[a*A_b + d] + p_ji_cond[d*A_a + a];
+      log_buffer_A_b[d] = data->Ln_ab[a*A_b + d] + p_ji_cond[a][d];
     }
     buffer->Ln_ia[a] = logsumexpn(log_buffer_A_b, A_b);
   }
@@ -222,7 +222,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     for (int a = 0; a < A_a; a++) {
       base_idx = 0;
       for (int d_p = 0; d_p < A_b; d_p++) {
-        log_buffer_2A_b[base_idx] = data->dv_Ln_ab[lc*AA_ab + a*A_b + d_p] + p_ji_cond[d_p*A_a + a];
+        log_buffer_2A_b[base_idx] = data->dv_Ln_ab[lc*AA_ab + a*A_b + d_p] + p_ji_cond[a][d_p];
         sign_buffer_2A_b[base_idx] = data->dv_Ln_ab_signs[lc*AA_ab + a*A_b + d_p];
         base_idx++;
         if(lc >= A_a) {
@@ -237,15 +237,14 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     }
   }
 
-
   for(int cd = 0; cd < AA_ab; cd++) {
     for (int a = 0; a < A_a; a++) {
       for (int d_p = 0; d_p < A_b; d_p++) {
         int base_idx = 2*d_p;
-        log_buffer_2A_b[base_idx] = dw_Ln_ab[a][d_p][cd] + p_ji_cond[d_p*A_a + a];
+        log_buffer_2A_b[base_idx] = dw_Ln_ab[a][d_p][cd] + p_ji_cond[a][d_p];
         sign_buffer_2A_b[base_idx] = dw_Ln_ab_signs[a][d_p][cd];
-        log_buffer_2A_b[base_idx + 1] = Ln_ab[a][d_p] + dw_p_ji_cond[d_p][a][cd];
-        sign_buffer_2A_b[base_idx + 1] = dw_p_ji_cond_signs[d_p][a][cd];
+        log_buffer_2A_b[base_idx + 1] = Ln_ab[a][d_p] + dw_p_ji_cond[a][d_p][cd];
+        sign_buffer_2A_b[base_idx + 1] = dw_p_ji_cond_signs[a][d_p][cd];
       }
       SignedLogExp logsumexp_result = signed_logsumexp_n(log_buffer_2A_b, sign_buffer_2A_b, 2*A_b);
       dw_Ln_ia[a][cd] = logsumexp_result.result;
@@ -764,12 +763,12 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   for (int a = 0; a < A_a; a++) {
     for (int b = 0; b < A_b; b++) {
       c_float_t prob = v[A_a + b] + w[a*A_b + b];
-      p_ji_cond[b*A_a + a] = prob;
+      p_ji_cond[a*A_b + b] = prob;
       tmp_prob[b] = prob;
     }
     c_float_t normalization = logsumexpn(tmp_prob, A_b);
     for (int b = 0; b < A_b; b++) {
-      p_ji_cond[b*A_a + a] -= normalization;
+      p_ji_cond[a*A_b + b] -= normalization;
     }
   }
 
@@ -779,8 +778,8 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     for (int a = 0; a < A_a; a++) {
       for (int b = 0; b < A_b; b++) {
         int ind = A_a*AA_ab + d*AA_ab + b*A_a + a;
-        SignedLogExp logsumexp_result = signed_logsumexp2((b == d) ? c_f0: log0, c_f1, p_ji_cond[d*A_a + a], -c_f1);
-        dv_p_ji_cond[ind] = logsumexp_result.result + p_ji_cond[b*A_a + a];
+        SignedLogExp logsumexp_result = signed_logsumexp2((b == d) ? c_f0: log0, c_f1, p_ji_cond[a*A_b + d], -c_f1);
+        dv_p_ji_cond[ind] = logsumexp_result.result + p_ji_cond[a*A_b + b];
         consts->dv_p_ji_cond_signs[ind] = logsumexp_result.sign;
       }
     }
@@ -795,9 +794,9 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       for (int b = 0; b < A_b; b++) {
         int a = c;
         int cd = c*A_j + d;
-        SignedLogExp logsumexp_result = signed_logsumexp2((b == d) ? c_f0: log0, c_f1, p_ji_cond[d*A_a + c], -c_f1);
-        dw_p_ji_cond[b][a][cd] = logsumexp_result.result + p_ji_cond[b*A_a + a];
-        dw_p_ji_cond_signs[b][a][cd] = logsumexp_result.sign;
+        SignedLogExp logsumexp_result = signed_logsumexp2((b == d) ? c_f0: log0, c_f1, p_ji_cond[c*A_b + d], -c_f1);
+        dw_p_ji_cond[a][b][cd] = logsumexp_result.result + p_ji_cond[a*A_b + b];
+        dw_p_ji_cond_signs[a][b][cd] = logsumexp_result.sign;
       }
     }
   }
