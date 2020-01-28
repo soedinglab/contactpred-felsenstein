@@ -7,6 +7,7 @@
 
 #define pad_float(N)  (N + (VECSIZE_FLOAT-1))/VECSIZE_FLOAT*VECSIZE_FLOAT
 
+
 void initialize_leaf(Node* leaf, Constants* consts) {
 
   int A_j = consts->A_j;
@@ -77,14 +78,22 @@ void initialize_buffer(Buffer* buffer, Constants* consts) {
 
   buffer->dw_left_Lab =  malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
   buffer->dw_right_Lab = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+
+  buffer->logexp_buffer = malloc(sizeof(LogExpBuffer));
+  initialize_logexpbuffer(buffer->logexp_buffer, consts);
 }
 
 void deinitialize_buffer(Buffer* buffer) {
   deinitialize_nodebuffer(buffer->left);
   deinitialize_nodebuffer(buffer->right);
+  free(buffer->left);
+  free(buffer->right);
 
   free(buffer->dw_left_Lab);
   free(buffer->dw_right_Lab);
+
+  deinitialize_logexpbuffer(buffer->logexp_buffer);
+  free(buffer->logexp_buffer);
 }
 
 void deinitialize_nodebuffer(NodeBuffer* buffer) {
@@ -106,7 +115,7 @@ void deinitialize_nodebuffer(NodeBuffer* buffer) {
   free(buffer->dw_Ln_jb_signs);
 }
 
-void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* consts){
+void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Constants* consts, Buffer* buffer){
 
   int A_i = consts->A_i;
   int A_j = consts->A_j;
@@ -138,14 +147,14 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
   c_float_t (* dw_p_ji_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond;
   c_float_t (* dw_p_ji_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond_signs;
 
-  c_float_t (*dw_Ln_ia)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_ia;
-  c_float_t (*dw_Ln_ia_signs)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_ia_signs;
-  c_float_t (*dw_Ln_jb)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_jb;
-  c_float_t (*dw_Ln_jb_signs)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) buffer->dw_Ln_jb_signs;
+  c_float_t (*dw_Ln_ia)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) node_buffer->dw_Ln_ia;
+  c_float_t (*dw_Ln_ia_signs)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) node_buffer->dw_Ln_ia_signs;
+  c_float_t (*dw_Ln_jb)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) node_buffer->dw_Ln_jb;
+  c_float_t (*dw_Ln_jb_signs)[AA_ij_padded] =  (c_float_t (*)[AA_ij_padded]) node_buffer->dw_Ln_jb_signs;
 
 
   // Nulling out buffer
-  buffer->Ln = 0;
+  node_buffer->Ln = 0;
 
   c_float_t log_buffer_A_j[A_j];
   c_float_t log_buffer_A_i[A_i];
@@ -166,7 +175,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
       log_buffer_AA[a*A_j + b] = data->Ln_ab[a*A_j + b] + p_ab[a][b];
     }
   }
-  buffer->Ln = logsumexpn(log_buffer_AA, AA_ij);
+  node_buffer->Ln = logsumexpn(log_buffer_AA, AA_ij);
 
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     for(int c_p = 0; c_p < A_i; c_p++) {
@@ -179,15 +188,15 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
       }
     }
     SignedLogExp logsumexp_result = signed_logsumexp_n(log_buffer_2AA, sign_buffer_2AA, 2 * AA_ij);
-    buffer->dv_Ln[lc] = logsumexp_result.result;
-    buffer->dv_Ln_signs[lc] = logsumexp_result.sign;
+    node_buffer->dv_Ln[lc] = logsumexp_result.result;
+    node_buffer->dv_Ln_signs[lc] = logsumexp_result.sign;
   }
 
   logsumexp_matrix_ax01(A_i, A_j, AA_ij_padded,
-    buffer->dw_Ln, buffer->dw_Ln_signs,
-    dw_Ln_ab, dw_Ln_ab_signs, p_ab,
-    dw_p_ab, dw_p_ab_signs, Ln_ab
-    );
+                        node_buffer->dw_Ln, node_buffer->dw_Ln_signs,
+                        dw_Ln_ab, dw_Ln_ab_signs, p_ab,
+                        dw_p_ab, dw_p_ab_signs, Ln_ab,
+                        buffer->logexp_buffer);
   /*
   for(int cd = 0; cd < AA_ij; cd++) {
     for(int c_p = 0; c_p < A_i; c_p++) {
@@ -210,7 +219,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     for(int d = 0; d < A_j; d++) {
       log_buffer_A_j[d] = data->Ln_ab[a * A_j + d] + p_ji_cond[a][d];
     }
-    buffer->Ln_ia[a] = logsumexpn(log_buffer_A_j, A_j);
+    node_buffer->Ln_ia[a] = logsumexpn(log_buffer_A_j, A_j);
   }
 
   int base_idx;
@@ -228,15 +237,16 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
         }
       }
       SignedLogExp logsumexp_result = signed_logsumexp_n(log_buffer_2A_j, sign_buffer_2A_j, base_idx);
-      buffer->dv_Ln_ia[lc*A_i + a] = logsumexp_result.result;
-      buffer->dv_Ln_ia_signs[lc*A_i + a] = logsumexp_result.sign;
+      node_buffer->dv_Ln_ia[lc * A_i + a] = logsumexp_result.result;
+      node_buffer->dv_Ln_ia_signs[lc * A_i + a] = logsumexp_result.sign;
     }
   }
 
   logsumexp_matrix_ax1(A_i, A_j, AA_ij_padded,
     dw_Ln_ia, dw_Ln_ia_signs,
     dw_Ln_ab, dw_Ln_ab_signs, p_ji_cond,
-    dw_p_ji_cond, dw_p_ji_cond_signs, Ln_ab
+    dw_p_ji_cond, dw_p_ji_cond_signs, Ln_ab,
+    buffer->logexp_buffer
   );
 
   /*
@@ -261,7 +271,7 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
     for(int c = 0; c < A_i; c++) {
       log_buffer_A_i[c] = data->Ln_ab[c * A_j + b] + p_ij_cond[c][b];
     }
-    buffer->Ln_jb[b] = logsumexpn(log_buffer_A_i, A_i);
+    node_buffer->Ln_jb[b] = logsumexpn(log_buffer_A_i, A_i);
   }
 
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
@@ -278,8 +288,8 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
         }
       }
       SignedLogExp logsumexp_result = signed_logsumexp_n(log_buffer_2A_i, sign_buffer_2A_i, base_idx);
-      buffer->dv_Ln_jb[lc*A_j + b] = logsumexp_result.result;
-      buffer->dv_Ln_jb_signs[lc*A_j + b] = logsumexp_result.sign;
+      node_buffer->dv_Ln_jb[lc * A_j + b] = logsumexp_result.result;
+      node_buffer->dv_Ln_jb_signs[lc * A_j + b] = logsumexp_result.sign;
     }
   }
 
@@ -287,7 +297,8 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
   logsumexp_matrix_ax0(A_i, A_j, AA_ij_padded,
                        dw_Ln_jb, dw_Ln_jb_signs,
                        dw_Ln_ab, dw_Ln_ab_signs, p_ij_cond,
-                       dw_p_ij_cond, dw_p_ij_cond_signs, Ln_ab
+                       dw_p_ij_cond, dw_p_ij_cond_signs, Ln_ab,
+                       buffer->logexp_buffer
   );
 
   /*
@@ -429,7 +440,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
    */
 }
 
-void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
+void recurse_tree(Node* node, Constants* consts, Buffer* buffer) {
 
   int A_i = consts->A_i;
   int A_j = consts->A_j;
@@ -442,8 +453,8 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
     initialize_leaf(node, consts);
     return;
   } else {
-    recurse_tree(node->left, consts, buf);
-    recurse_tree(node->right, consts, buf);
+    recurse_tree(node->left, consts, buffer);
+    recurse_tree(node->right, consts, buffer);
   }
   initialize_node(node, consts);
 
@@ -461,13 +472,13 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
   // precalculate aggregated values
   if(node->left != NULL) {
     NodePrecomputation *left_data = node->left->data;
-    NodeBuffer* left_buf = buf->left;
-    precompute_buffer(left_buf, left_data, consts);
+    NodeBuffer* left_buf = buffer->left;
+    precompute_buffer(left_buf, left_data, consts, buffer);
   }
   if(node->right != NULL) {
     NodePrecomputation* right_data = node->right->data;
-    NodeBuffer* right_buf = buf->right;
-    precompute_buffer(right_buf, right_data, consts);
+    NodeBuffer* right_buf = buffer->right;
+    precompute_buffer(right_buf, right_data, consts, buffer);
   }
 
   for (int a = 0; a < A_i; a++) {
@@ -478,13 +489,13 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
       if (node->left != NULL) {
         initialize_array(dv_left_Lab, c_f0, A_i_p_A_j);
         initialize_array(dw_left_Lab, c_f0, AA_ij_padded);
-        compute_Ln_branch(node->left, node->log_p_left, node->log_1mp_left, buf->left, consts, &left_Lab, dv_left_Lab, dv_left_Lab_signs,
+        compute_Ln_branch(node->left, node->log_p_left, node->log_1mp_left, buffer->left, consts, &left_Lab, dv_left_Lab, dv_left_Lab_signs,
                           dw_left_Lab, dw_left_Lab_signs, a, b);
       }
       if (node->right != NULL) {
         initialize_array(dv_right_Lab, c_f0, A_i_p_A_j);
         initialize_array(dw_right_Lab, c_f0, AA_ij_padded);
-        compute_Ln_branch(node->right, node->log_p_right, node->log_1mp_right, buf->right, consts, &right_Lab, dv_right_Lab,
+        compute_Ln_branch(node->right, node->log_p_right, node->log_1mp_right, buffer->right, consts, &right_Lab, dv_right_Lab,
                           dv_right_Lab_signs, dw_right_Lab, dw_right_Lab_signs, a, b);
       }
 
@@ -508,14 +519,12 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
       c_float_t (*dw_Ln_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) node_data->dw_Ln_ab;
       c_float_t (*dw_Ln_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) node_data->dw_Ln_ab_signs;
 
-      //TODO AVX implementation
-
-      add_constant(buf->dw_left_Lab, dw_left_Lab, right_Lab, AA_ij_padded);
-      add_constant(buf->dw_right_Lab, dw_right_Lab, left_Lab, AA_ij_padded);
+      add_constant(buffer->dw_left_Lab, dw_left_Lab, right_Lab, AA_ij_padded);
+      add_constant(buffer->dw_right_Lab, dw_right_Lab, left_Lab, AA_ij_padded);
       signedlogsumexp2_array(dw_Ln_ab[a][b], dw_Ln_ab_signs[a][b],
-        buf->dw_left_Lab, dw_left_Lab_signs,
-        buf->dw_right_Lab, dw_right_Lab_signs,
-        AA_ij_padded
+                             buffer->dw_left_Lab, dw_left_Lab_signs,
+                             buffer->dw_right_Lab, dw_right_Lab_signs,
+                             AA_ij_padded
         );
       /*
       for (int cd = 0; cd < AA_ij; cd++) {
@@ -807,4 +816,19 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       }
     }
   }
+}
+
+void initialize_logexpbuffer(LogExpBuffer* buffer, Constants* consts) {
+  int AA_ij = consts->AA_ij;
+  int AA_ij_padded = consts->AA_ij_padded;
+  // required size varies and is chosen large enough
+  buffer->max1 = malloc_simd_float(AA_ij * AA_ij_padded * sizeof(c_float_t));
+  buffer->max2 = malloc_simd_float(AA_ij * AA_ij_padded * sizeof(c_float_t));
+  buffer->tmp_dim3 = malloc_simd_float(AA_ij_padded * sizeof(c_float_t));
+}
+
+void deinitialize_logexpbuffer(LogExpBuffer* buffer) {
+  free(buffer->max1);
+  free(buffer->max2);
+  free(buffer->tmp_dim3);
 }

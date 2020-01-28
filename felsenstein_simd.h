@@ -11,10 +11,15 @@
 typedef float c_float_t;
 
 typedef struct SignedLogExp {
-  int8_t sign;
+  c_float_t sign;
   c_float_t result;
 } SignedLogExp;
 
+typedef struct LogExpBuffer {
+  c_float_t* max1;
+  c_float_t* max2;
+  c_float_t* tmp_dim3;
+} LogExpBuffer;
 
 static inline void initialize_array(c_float_t* arr, c_float_t value, int length) {
   for(int i = 0; i < length; i++) {
@@ -193,6 +198,8 @@ typedef struct Buffer {
   c_float_t* dw_left_Lab;
   c_float_t* dw_right_Lab;
 
+  LogExpBuffer* logexp_buffer;
+
 } Buffer;
 
 typedef struct Constants {
@@ -241,10 +248,13 @@ void deinitialize_constants(Constants* consts);
 
 void initialize_buffer(Buffer*, Constants* consts);
 void initialize_nodebuffer(NodeBuffer*, Constants* consts);
-void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* consts);
+void precompute_buffer(NodeBuffer*, NodePrecomputation*, Constants*, Buffer*);
 void deinitialize_nodebuffer(NodeBuffer*);
 void deinitialize_buffer(Buffer*);
+void initialize_logexpbuffer(LogExpBuffer*, Constants*);
+void deinitialize_logexpbuffer(LogExpBuffer*);
 
-c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
+
+  c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
 #endif //FELSENSTEIN_FELSENSTEIN_H

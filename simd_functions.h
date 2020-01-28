@@ -349,19 +349,21 @@ static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3],
 
 void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* res, float* res_signs,
   float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
-  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2]) {
+  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
+  LogExpBuffer* buf) {
 
   simd_float zero_chunk = simdf32_set(0.0f);
   for(int cd = 0; cd < dim3; cd+= VECSIZE_FLOAT) {
     simdf32_store(res + cd, zero_chunk);
   }
-  aligned_float max1[dim3];
-  aligned_float max2[dim3];
+  float* max1 = buf->max1;
+  float* max2 = buf->max2;
+
   col_max_ax01(dim1, dim2, dim3, max1, x1, y1);
   col_max_ax01(dim1, dim2, dim3, max2, x2, y2);
   max_array(max1, max1, max2, dim3);
 
-  aligned_float tmp[dim3];
+  float* tmp = buf->tmp_dim3;
 
   for (int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
@@ -390,7 +392,8 @@ void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* res, float* res_
 
 void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
   float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
-  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2]) {
+  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
+  LogExpBuffer* buffer) {
 
   simd_float zero_chunk = simdf32_set(0.0f);
   for(int d_p = 0; d_p < dim2; d_p++) {
@@ -399,8 +402,8 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
     }
   }
 
-  aligned_float max1[dim2][dim3];
-  aligned_float max2[dim2][dim3];
+  float (*max1)[dim3] = (float (*)[dim3]) buffer->max1;
+  float (*max2)[dim3] = (float (*)[dim3]) buffer->max2;
 
   col_max_ax0(dim1, dim2, dim3, max1, x1, y1);
   col_max_ax0(dim1, dim2, dim3, max2, x2, y2);
@@ -408,8 +411,7 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
   float* max1_lin = (float*) max1;
   float* max2_lin = (float*) max2;
   max_array(max1_lin, max1_lin, max2_lin, dim2*dim3);
-
-  aligned_float tmp[dim3];
+  float* tmp = buffer->tmp_dim3;
 
   for (int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
@@ -437,7 +439,8 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
 
 void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
   float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
-  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2]) {
+  float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
+  LogExpBuffer* buffer) {
 
   simd_float zero_chunk = simdf32_set(0.0f);
   for(int c_p = 0; c_p < dim1; c_p++) {
@@ -446,8 +449,8 @@ void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*res)[dim3], floa
     }
   }
 
-  aligned_float max1[dim1][dim3];
-  aligned_float max2[dim1][dim3];
+  float (*max1)[dim3] = (float (*)[dim3]) buffer->max1;
+  float (*max2)[dim3] = (float (*)[dim3]) buffer->max2;
   col_max_ax1(dim1, dim2, dim3, max1, x1, y1);
   col_max_ax1(dim1, dim2, dim3, max2, x2, y2);
 
@@ -455,7 +458,7 @@ void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*res)[dim3], floa
   float* max2_lin = (float*) max2;
   max_array(max1_lin, max1_lin, max2_lin, dim1*dim3);
 
-  aligned_float tmp[dim3];
+  float* tmp = buffer->tmp_dim3;
 
   for (int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
