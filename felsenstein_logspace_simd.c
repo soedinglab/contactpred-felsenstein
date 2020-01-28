@@ -113,6 +113,11 @@ void deinitialize_nodebuffer(NodeBuffer* buffer) {
   free(buffer->dw_Ln_ia_signs);
   free(buffer->dw_Ln_jb);
   free(buffer->dw_Ln_jb_signs);
+
+  free(buffer->dw_mut0_buffer);
+  free(buffer->dw_mut1_buffer);
+  free(buffer->dw_mut1_sign_buffer);
+  free(buffer->dw_mut2_buffer);
 }
 
 void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Constants* consts, Buffer* buffer){

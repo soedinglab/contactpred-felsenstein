@@ -7,10 +7,17 @@
 
 #include "float.h"
 #include <immintrin.h>
+#include "simd.h"
+
+
+typedef struct LogExpBuffer {
+  float* max1;
+  float* max2;
+  float* tmp_dim3;
+} LogExpBuffer;
+
 
 typedef float c_float_t;
-
-typedef float aligned_float __attribute__ ((aligned (ALIGN_FLOAT)));
 
 static inline simd_float simdf32_fpow2(simd_float X) {
 
@@ -347,7 +354,7 @@ static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3],
   }
 }
 
-void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* res, float* res_signs,
+static inline void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* res, float* res_signs,
   float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
   float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
   LogExpBuffer* buf) {
@@ -390,7 +397,7 @@ void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* res, float* res_
   add_array(res, res, max1, dim3);
 }
 
-void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
+static inline void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
   float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
   float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
   LogExpBuffer* buffer) {
@@ -437,7 +444,7 @@ void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*res)[dim3], floa
   }
 }
 
-void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
+static inline void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*res)[dim3], float (*res_signs)[dim3],
   float (*x1)[dim2][dim3], float (*sign1)[dim2][dim3], float (*y1)[dim2],
   float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
   LogExpBuffer* buffer) {

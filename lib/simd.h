@@ -6,6 +6,7 @@
 #define SIMD_H
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 

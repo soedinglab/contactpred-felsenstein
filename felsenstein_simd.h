@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <math.h>
+#include "simd_functions.h"
+
 
 #define c_f0 0.0f
 #define c_f1 1.0f
@@ -14,12 +16,6 @@ typedef struct SignedLogExp {
   c_float_t sign;
   c_float_t result;
 } SignedLogExp;
-
-typedef struct LogExpBuffer {
-  c_float_t* max1;
-  c_float_t* max2;
-  c_float_t* tmp_dim3;
-} LogExpBuffer;
 
 static inline void initialize_array(c_float_t* arr, c_float_t value, int length) {
   for(int i = 0; i < length; i++) {

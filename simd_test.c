@@ -11,28 +11,32 @@
 
 
 int main() {
-    size_t N = 8;
+    size_t N = 32;
     size_t N_pad = pad_float(N);
     float* x = (float*) malloc_simd_float(N_pad*sizeof(float));
     float* y = (float*) malloc_simd_float(N_pad*sizeof(float));
+    float* z = (float*) malloc_simd_float(N_pad*sizeof(float));
     float* x_signs = (float*) malloc_simd_float(N_pad*sizeof(float));
     float* y_signs = (float*) malloc_simd_float(N_pad*sizeof(float));
+    float* z_signs = (float*) malloc_simd_float(N_pad*sizeof(float));
 
     for(int i = 0; i < N; i++) {
       x[i] = i;
       y[i] = N - 1 - i;
+      z[i] = 5;
       x_signs[i] = 1;
       y_signs[i] = -1;
+      z_signs[i] =  i % 2 == 0 ? 1 : -1;
     }
 
     float* out = (float*) malloc_simd_float(N_pad*sizeof(float));
     float* out_signs = (float*) malloc_simd_float(N_pad*sizeof(float));
-    signedlogsumexp2_array(out, out_signs, x, x_signs, y, y_signs, N);
+    signedlogsumexp3_array(out, out_signs, x, x_signs, y, y_signs, z, z_signs, N);
     for(int i = 0; i < N_pad; i++) {
-      //printf("%f ", out[i]);
+      printf("%f ", out[i]);
     }
     for(int i = 0; i < N_pad; i++) {
-      //printf("%f ", out_signs[i]);
+      printf("%f ", out_signs[i]);
     }
 
     free(x);
@@ -59,7 +63,7 @@ int main() {
 
     float* result =  malloc_simd_float(padded_AA_ij*sizeof(float));
     float* result_sign = malloc_simd_float(padded_AA_ij*sizeof(float));
-    logsumexp_matrix_ax01(result, result_sign, A_i, A_j, padded_AA_ij, data_3d, sign_3d);
+    //logsumexp_matrix_ax01(result, result_sign, A_i, A_j, padded_AA_ij, data_3d, sign_3d);
 
     for(int i = 0; i < A_i*A_j; i++) {
       printf("%f ", result[i]);
