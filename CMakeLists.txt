@@ -60,7 +60,4 @@ target_link_libraries(felsenstein_test16 m)
 
 add_executable(felsenstein_simd felsenstein_simd.h felsenstein_logspace_simd.c felsenstein_logtest_simd.c)
 set_target_properties(felsenstein_simd PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
-
-add_executable(felsenstein_simdalike felsenstein_simdstructure.h felsenstein_logspace_faster_simdstructure.c felsenstein_logtest_faster_simdstructure.c)
-set_target_properties(felsenstein_simdalike PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
-target_link_libraries(felsenstein_simdalike m)
+target_link_libraries(felsenstein_simd m)
