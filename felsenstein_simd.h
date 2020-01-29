@@ -201,7 +201,8 @@ typedef struct Buffer {
   c_float_t* dv_left_Lab;
   c_float_t* dv_right_Lab;
 
-  LogExpBuffer* logexp_buffer;
+  LogExpBuffer* dv_logexp_buffer;
+  LogExpBuffer* dw_logexp_buffer;
 
 } Buffer;
 
@@ -255,7 +256,7 @@ void initialize_nodebuffer(NodeBuffer*, Constants* consts);
 void precompute_buffer(NodeBuffer*, NodePrecomputation*, Constants*, Buffer*);
 void deinitialize_nodebuffer(NodeBuffer*);
 void deinitialize_buffer(Buffer*);
-void initialize_logexpbuffer(LogExpBuffer*, Constants*);
+void initialize_logexpbuffer(LogExpBuffer*, Constants*, size_t);
 void deinitialize_logexpbuffer(LogExpBuffer*);
 
 
