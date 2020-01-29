@@ -63,10 +63,7 @@ int main() {
     }
   }
 
-
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(A_i_p_A_j + AA_ij));
-
-
 
   Constants* consts = malloc(sizeof(Constants));
   consts->phylo_tree = nodes;

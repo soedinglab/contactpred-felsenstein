@@ -185,6 +185,11 @@ typedef struct NodeBuffer {
   c_float_t* dw_mut1_sign_buffer;
   c_float_t* dw_mut2_buffer;
 
+  c_float_t* dv_mut0_buffer;
+  c_float_t* dv_mut1_buffer;
+  c_float_t* dv_mut1_sign_buffer;
+  c_float_t* dv_mut2_buffer;
+
 } NodeBuffer;
 
 typedef struct Buffer {
@@ -193,6 +198,8 @@ typedef struct Buffer {
 
   c_float_t* dw_left_Lab;
   c_float_t* dw_right_Lab;
+  c_float_t* dv_left_Lab;
+  c_float_t* dv_right_Lab;
 
   LogExpBuffer* logexp_buffer;
 
@@ -252,6 +259,6 @@ void initialize_logexpbuffer(LogExpBuffer*, Constants*);
 void deinitialize_logexpbuffer(LogExpBuffer*);
 
 
-  c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
+c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
 #endif //FELSENSTEIN_FELSENSTEIN_H

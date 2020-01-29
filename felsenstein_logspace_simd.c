@@ -62,17 +62,26 @@ void initialize_nodebuffer(NodeBuffer* buffer, Constants* consts) {
   buffer->dw_mut1_sign_buffer = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
   buffer->dw_mut2_buffer = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
 
+  buffer->dv_mut0_buffer = malloc_simd_float(A_i_p_A_j_padded*sizeof(c_float_t));
+  buffer->dv_mut1_buffer = malloc_simd_float(A_i_p_A_j_padded*sizeof(c_float_t));
+  buffer->dv_mut1_sign_buffer = malloc_simd_float(A_i_p_A_j_padded*sizeof(c_float_t));
+  buffer->dv_mut2_buffer = malloc_simd_float(A_i_p_A_j_padded*sizeof(c_float_t));
+
 }
 
 void initialize_buffer(Buffer* buffer, Constants* consts) {
   int AA_ij_padded = consts->AA_ij_padded;
+  int A_i_p_A_j_padded = consts->A_i_p_A_j_padded;
   buffer->left = malloc(sizeof(NodeBuffer));
   initialize_nodebuffer(buffer->left, consts);
   buffer->right = malloc(sizeof(NodeBuffer));
   initialize_nodebuffer(buffer->right, consts);
 
-  buffer->dw_left_Lab =  malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+  buffer->dw_left_Lab = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
   buffer->dw_right_Lab = malloc_simd_float(AA_ij_padded*sizeof(c_float_t));
+
+  buffer->dv_left_Lab = malloc_simd_float(A_i_p_A_j_padded*sizeof(c_float_t));
+  buffer->dv_right_Lab = malloc_simd_float(A_i_p_A_j_padded*sizeof(c_float_t));
 
   buffer->logexp_buffer = malloc(sizeof(LogExpBuffer));
   initialize_logexpbuffer(buffer->logexp_buffer, consts);
@@ -86,6 +95,8 @@ void deinitialize_buffer(Buffer* buffer) {
 
   free(buffer->dw_left_Lab);
   free(buffer->dw_right_Lab);
+  free(buffer->dv_left_Lab);
+  free(buffer->dv_right_Lab);
 
   deinitialize_logexpbuffer(buffer->logexp_buffer);
   free(buffer->logexp_buffer);
@@ -113,6 +124,11 @@ void deinitialize_nodebuffer(NodeBuffer* buffer) {
   free(buffer->dw_mut1_buffer);
   free(buffer->dw_mut1_sign_buffer);
   free(buffer->dw_mut2_buffer);
+
+  free(buffer->dv_mut0_buffer);
+  free(buffer->dv_mut1_buffer);
+  free(buffer->dv_mut1_sign_buffer);
+  free(buffer->dv_mut2_buffer);
 }
 
 void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Constants* consts, Buffer* buffer){
@@ -390,6 +406,22 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
   c_float_t (*dv_Ln_ab)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) child_data->dv_Ln_ab;
   c_float_t (*dv_Ln_ab_signs)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) child_data->dv_Ln_ab_signs;
 
+  add_constant(buffer->dv_mut2_buffer,  child_buffer->dv_Ln, 2*log_1mr, A_i_p_A_j_padded);
+  signedlogsumexp2_array(buffer->dv_mut1_buffer, buffer->dv_mut1_sign_buffer,
+                         dv_Ln_ia[a], dv_Ln_ia_signs[a],
+                         dv_Ln_jb[b],  dv_Ln_jb_signs[b],
+                         A_i_p_A_j_padded
+  );
+  add_constant(buffer->dv_mut1_buffer, buffer->dv_mut1_buffer, log_r + log_1mr,  A_i_p_A_j_padded);
+  add_constant(buffer->dv_mut0_buffer, dv_Ln_ab[a][b], 2*log_r, A_i_p_A_j_padded);
+  signedlogsumexp3_array(dv_L_ab, dv_L_ab_signs,
+                         buffer->dv_mut2_buffer, child_buffer->dv_Ln_signs,
+                         buffer->dv_mut1_buffer, buffer->dv_mut1_sign_buffer,
+                         buffer->dv_mut0_buffer, dv_Ln_ab_signs[a][b],
+                         A_i_p_A_j_padded
+  );
+
+  /*
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     c_float_t ddv_mut2 = 2*log_1mr + child_buffer->dv_Ln[lc];
     c_float_t ddv_mut2_sign = child_buffer->dv_Ln_signs[lc];
@@ -409,6 +441,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
     dv_L_ab[lc] = mut_logsumexp.result;
     dv_L_ab_signs[lc] = mut_logsumexp.sign;
   }
+   */
 
   c_float_t (*dw_Ln_ia)[AA_ij_padded] = (c_float_t (*)[AA_ij_padded]) child_buffer->dw_Ln_ia;
   c_float_t (*dw_Ln_ia_signs)[AA_ij_padded] = (c_float_t (*)[AA_ij_padded]) child_buffer->dw_Ln_ia_signs;
@@ -530,16 +563,13 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buffer) {
 
       // combine derivatives for left and right children
 
-      for (int lc = 0; lc < A_i_p_A_j; lc++) {
-        c_float_t left_deriv_term = dv_left_Lab[lc] + right_Lab;
-        c_float_t left_deriv_sign = dv_left_Lab_signs[lc];
-        c_float_t right_deriv_term = left_Lab + dv_right_Lab[lc];
-        c_float_t right_deriv_sign = dv_right_Lab_signs[lc];
-        SignedLogExp logsumexp_result = signed_logsumexp2(left_deriv_term, left_deriv_sign, right_deriv_term,
-                                                          right_deriv_sign);
-        dv_Ln_ab[a][b][lc] = logsumexp_result.result;
-        dv_Ln_ab_signs[a][b][lc] = logsumexp_result.sign;
-      }
+      add_constant(buffer->dv_left_Lab, dv_left_Lab, right_Lab, A_i_p_A_j_padded);
+      add_constant(buffer->dv_right_Lab, dv_right_Lab, left_Lab, A_i_p_A_j_padded);
+      signedlogsumexp2_array(dv_Ln_ab[a][b], dv_Ln_ab_signs[a][b],
+                             buffer->dv_left_Lab, dv_left_Lab_signs,
+                             buffer->dv_right_Lab, dv_right_Lab_signs,
+                             A_i_p_A_j_padded
+      );
 
       add_constant(buffer->dw_left_Lab, dw_left_Lab, right_Lab, AA_ij_padded);
       add_constant(buffer->dw_right_Lab, dw_right_Lab, left_Lab, AA_ij_padded);
@@ -548,18 +578,6 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buffer) {
                              buffer->dw_right_Lab, dw_right_Lab_signs,
                              AA_ij_padded
         );
-      /*
-      for (int cd = 0; cd < AA_ij; cd++) {
-        c_float_t left_deriv_term = dw_left_Lab[cd] + right_Lab;
-        c_float_t left_deriv_sign = dw_left_Lab_signs[cd];
-        c_float_t right_deriv_term = left_Lab + dw_right_Lab[cd];
-        c_float_t right_deriv_sign = dw_right_Lab_signs[cd];
-        SignedLogExp logsumexp_result = signed_logsumexp2(left_deriv_term, left_deriv_sign, right_deriv_term,
-                                                          right_deriv_sign);
-        dw_Ln_ab[a][b][cd] = logsumexp_result.result;
-        dw_Ln_ab_signs[a][b][cd] = logsumexp_result.sign;
-      }
-       */
     }
   }
   if(node->left != NULL) {
