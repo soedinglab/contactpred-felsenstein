@@ -1,4 +1,4 @@
-#include "felsenstein.h"
+#include "felsenstein_faster.h"
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -291,8 +291,8 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
   NodePrecomputation *child_data = node->data;
   NodeBuffer* child_buffer = buffer;
 
-  c_float_t log_r = log(phi);
-  c_float_t log_1mr = log(1 - phi);
+  c_float_t log_r = log2(phi);
+  c_float_t log_1mr = log2(1 - phi);
   c_float_t mut2 = 2*log_1mr + child_buffer->Ln;
   c_float_t mut1 = log_r + log_1mr + logsumexp2(child_buffer->Ln_ia[a], child_buffer->Ln_jb[b]);
   c_float_t mut0 = 2*log_r + child_data->Ln_ab[a*A_b + b];
@@ -469,7 +469,7 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
       buffer_2AA_signs[base_idx + 1] = consts->dv_p_ab_signs[lc*AA_ab + ab];
     }
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
-    grad[lc] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
+    grad[lc] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
   for(int cd = 0; cd < AA_ab; cd++) {
     for(int ab = 0; ab < AA_ab; ab++) {
@@ -480,7 +480,7 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
       buffer_2AA_signs[base_idx + 1] = consts->dw_p_ab_signs[cd*AA_ab + ab];
     }
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
-    grad[A_a_p_A_b + cd] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
+    grad[A_a_p_A_b + cd] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
   deinitialize_node(root);
   return fx;

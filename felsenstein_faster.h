@@ -3,19 +3,23 @@
 
 #include <stdint.h>
 #include <math.h>
-#include "simd_functions.h"
+
+#define c_f0 0.0
+#define N_COL 2
+#define A 20
+#define AA 400
+#define AAA 8000
+#define AAAA 160000
+#define log0 -2000
 
 
-#define c_f0 0.0f
-#define c_f1 1.0f
-#define log0 -2000.0f
-
-typedef float c_float_t;
+typedef double c_float_t;
 
 typedef struct SignedLogExp {
-  c_float_t sign;
+  int8_t sign;
   c_float_t result;
 } SignedLogExp;
+
 
 static inline void initialize_array(c_float_t* arr, c_float_t value, int length) {
   for(int i = 0; i < length; i++) {
@@ -35,7 +39,7 @@ static inline c_float_t logsumexp2(c_float_t log_x, c_float_t log_y) {
   return logsumexp;
 }
 
-static inline SignedLogExp signed_logsumexp2(c_float_t log_x, c_float_t sign_x, c_float_t log_y, c_float_t sign_y) {
+static inline SignedLogExp signed_logsumexp2(c_float_t log_x, int8_t sign_x, c_float_t log_y, int8_t sign_y) {
   c_float_t logsumexp;
   int8_t sign;
   if(log_x > log_y) {
@@ -66,7 +70,7 @@ static inline c_float_t logsumexp3(c_float_t log_x, c_float_t log_y, c_float_t l
   return logsumexp;
 }
 
-static inline SignedLogExp signed_logsumexp3(c_float_t log_x, c_float_t sign_x, c_float_t log_y, c_float_t sign_y, c_float_t log_z, c_float_t sign_z) {
+static inline SignedLogExp signed_logsumexp3(c_float_t log_x, int8_t sign_x, c_float_t log_y, int8_t sign_y, c_float_t log_z, int8_t sign_z) {
   c_float_t logsumexp;
   int8_t sign;
   if(log_x > log_y && log_x > log_z) {
@@ -101,7 +105,7 @@ static inline c_float_t logsumexpn(c_float_t* log_vals, int n) {
   return max + ((exp_sum != 0) ? log2(exp_sum) : log0);
 }
 
-static inline SignedLogExp signed_logsumexp_n(c_float_t* log_vals, c_float_t* signs, int n) {
+static inline SignedLogExp signed_logsumexp_n(c_float_t* log_vals, int8_t* signs, int n) {
   c_float_t max = log_vals[0];
   for(int i = 1; i < n; i++) {
     max = (log_vals[i] > max) ? log_vals[i] : max;
@@ -116,15 +120,16 @@ static inline SignedLogExp signed_logsumexp_n(c_float_t* log_vals, c_float_t* si
 }
 
 
+
 typedef struct NodePrecomputation {
   // dim: A*A [a, b]
   c_float_t* Ln_ab;
   // dim: 2*A*A*A [i, c, a, b]
   c_float_t* dv_Ln_ab;
-  c_float_t* dv_Ln_ab_signs;
+  int8_t* dv_Ln_ab_signs;
   // dim: A*A*A*A [c, d, a, b]
   c_float_t* dw_Ln_ab;
-  c_float_t* dw_Ln_ab_signs;
+  int8_t* dw_Ln_ab_signs;
 
 } NodePrecomputation;
 
@@ -133,15 +138,8 @@ typedef struct Node {
   struct Node* right;
 
   int seq_id;
-
-
   c_float_t phi_left;
-  c_float_t log_1mp_left;
-  c_float_t log_p_left;
-
   c_float_t phi_right;
-  c_float_t log_1mp_right;
-  c_float_t log_p_right;
 
   NodePrecomputation* data;
 
@@ -157,78 +155,63 @@ typedef struct NodeBuffer {
 
   // dim: 2*A [i, c]
   c_float_t* dv_Ln;
-  c_float_t* dv_Ln_signs;
+  int8_t* dv_Ln_signs;
 
   // dim: 2*A*A [i, c, a]
   c_float_t* dv_Ln_ia;
-  c_float_t* dv_Ln_ia_signs;
+  int8_t* dv_Ln_ia_signs;
 
   // dim: 2*A*A [i, c, b]
   c_float_t* dv_Ln_jb;
-  c_float_t* dv_Ln_jb_signs;
+  int8_t* dv_Ln_jb_signs;
 
   // dim: A*A [c, d]
   c_float_t* dw_Ln;
-  c_float_t* dw_Ln_signs;
+  int8_t* dw_Ln_signs;
 
   // dim: A*A*A [c, d, a]
   c_float_t* dw_Ln_ia;
-  c_float_t* dw_Ln_ia_signs;
+  int8_t* dw_Ln_ia_signs;
 
   // dim: A*A*A [c, d, b]
   c_float_t* dw_Ln_jb;
-  c_float_t* dw_Ln_jb_signs;
-
-  // temporary buffer
-  c_float_t* dw_mut0_buffer;
-  c_float_t* dw_mut1_buffer;
-  c_float_t* dw_mut1_sign_buffer;
-  c_float_t* dw_mut2_buffer;
+  int8_t* dw_Ln_jb_signs;
 
 } NodeBuffer;
 
 typedef struct Buffer {
   NodeBuffer* left;
   NodeBuffer* right;
-
-  c_float_t* dw_left_Lab;
-  c_float_t* dw_right_Lab;
-
-  LogExpBuffer* logexp_buffer;
-
 } Buffer;
 
 typedef struct Constants {
-
-  int A_i;
-  int A_j;
-  int A_i_p_A_j;
-  int A_i_p_A_j_padded;
-  int AA_ij;
-  int AA_ij_padded;
-
   int L;
 
   c_float_t* p_ab;
   c_float_t* dw_p_ab;
-  c_float_t* dw_p_ab_signs;
+  int8_t* dw_p_ab_signs;
   c_float_t* dv_p_ab;
-  c_float_t* dv_p_ab_signs;
+  int8_t* dv_p_ab_signs;
 
   c_float_t* p_ij_cond;
   c_float_t* dw_p_ij_cond;
-  c_float_t* dw_p_ij_cond_signs;
+  int8_t* dw_p_ij_cond_signs;
   c_float_t* dv_p_ij_cond;
-  c_float_t* dv_p_ij_cond_signs;
+  int8_t* dv_p_ij_cond_signs;
 
   c_float_t* p_ji_cond;
   c_float_t* dw_p_ji_cond;
-  c_float_t* dw_p_ji_cond_signs;
+  int8_t* dw_p_ji_cond_signs;
   c_float_t* dv_p_ji_cond;
-  c_float_t* dv_p_ji_cond_signs;
+  int8_t* dv_p_ji_cond_signs;
 
   Node* phylo_tree;
   uint8_t* msa;
+
+  int A_i;
+  int A_b;
+  int A_i_p_A_j;
+  int AA_ij;
 
   int i;
   int j;
@@ -243,15 +226,10 @@ void initialize_constants(Constants* consts);
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w);
 void deinitialize_constants(Constants* consts);
 
-void initialize_buffer(Buffer*, Constants* consts);
-void initialize_nodebuffer(NodeBuffer*, Constants* consts);
-void precompute_buffer(NodeBuffer*, NodePrecomputation*, Constants*, Buffer*);
-void deinitialize_nodebuffer(NodeBuffer*);
-void deinitialize_buffer(Buffer*);
-void initialize_logexpbuffer(LogExpBuffer*, Constants*);
-void deinitialize_logexpbuffer(LogExpBuffer*);
+void initialize_buffer(NodeBuffer*, Constants* consts);
+void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* consts);
+void deinitialize_buffer(NodeBuffer*);
 
-
-  c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
+c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
 #endif //FELSENSTEIN_FELSENSTEIN_H

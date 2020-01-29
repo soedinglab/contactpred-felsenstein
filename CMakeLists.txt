@@ -49,7 +49,7 @@ target_link_libraries(felsenstein_test m)
 add_executable(felsenstein_log_test felsenstein.h felsenstein_logspace.c felsenstein_logtest.c)
 target_link_libraries(felsenstein_log_test m)
 
-add_executable(felsenstein_test_faster felsenstein.h felsenstein_logspace_faster.c felsenstein_logtest_faster.c)
+add_executable(felsenstein_test_faster felsenstein_logspace_faster.c felsenstein_logtest_faster.c)
 target_link_libraries(felsenstein_test_faster m)
 
 add_executable(felsenstein_log_test16 felsenstein.h felsenstein_logspace.c felsenstein_logtest16.c)

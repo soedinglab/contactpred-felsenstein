@@ -41,8 +41,8 @@ int main() {
     nodes[n].seq_id = n - N + 1;
   }
 
-  int A_a = 10;
-  int A_b = 10;
+  int A_a = 4;
+  int A_b = 4;
   int A_a_p_A_b = A_a + A_b;
   int AA_ab = A_a * A_b;
 
