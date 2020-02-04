@@ -1,14 +1,10 @@
 import argparse
 import numpy as np
 import ccmpred
-from multiprocessing import Pool
-
-from math import exp, sqrt
-
-from optimize_felsenstein_faster import optimize_felsenstein, OptimizationFailure
 
 # hard coded alphabet size
 A = 20
+
 
 def create_parser():
     parser = argparse.ArgumentParser('pairwise_cp')

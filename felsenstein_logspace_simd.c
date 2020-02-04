@@ -684,7 +684,12 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
 }
 
 void initialize_constants(Constants* consts) {
-  int AA_ij = consts->AA_ij;
+
+  int AA_ij = consts->A_i * consts->A_j;
+  consts->AA_ij = AA_ij;
+  int A_i_p_A_j = consts->A_i + consts->A_j;
+  consts->A_i_p_A_j = A_i_p_A_j;
+
   int AA_ij_padded = pad_float(consts->AA_ij);
   consts->AA_ij_padded = AA_ij_padded;
 
@@ -769,6 +774,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   }
 
   initialize_array(consts->dv_p_ab, log0, A_i_p_A_j_padded * AA_ij);
+  initialize_array(consts->dv_p_ab_signs, c_f1, A_i_p_A_j_padded * AA_ij);
   c_float_t (*dv_p_ab)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) consts->dv_p_ab;
   c_float_t (*dv_p_ab_signs)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) consts->dv_p_ab_signs;
 
@@ -792,11 +798,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   }
 
 
-  c_float_t *dw_p_ab_lin = consts->dw_p_ab;
-  initialize_array(dw_p_ab_lin, log0, AA_ij * AA_ij_padded);
-  c_float_t *dw_p_ab_signs_lin = consts->dw_p_ab_signs;
-  c_float_t (*dw_p_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) dw_p_ab_lin;
-  c_float_t (*dw_p_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) dw_p_ab_signs_lin;
+  initialize_array(consts->dw_p_ab, log0, AA_ij * AA_ij_padded);
+  initialize_array(consts->dw_p_ab_signs, c_f1, AA_ij * AA_ij_padded);
+  c_float_t (*dw_p_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ab;
+  c_float_t (*dw_p_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ab_signs;
 
 
   for (int c = 0; c < A_i; c++) {
@@ -830,6 +835,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
 
 
   initialize_array(consts->dv_p_ij_cond, log0, AA_ij * A_i_p_A_j_padded);
+  initialize_array(consts->dv_p_ij_cond_signs, c_f1, AA_ij * A_i_p_A_j_padded);
   c_float_t (*dv_p_ij_cond)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) consts->dv_p_ij_cond;
   c_float_t (*dv_p_ij_cond_signs)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) consts->dv_p_ij_cond_signs;
 
@@ -844,6 +850,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   }
 
   initialize_array(consts->dw_p_ij_cond, log0, AA_ij * AA_ij_padded);
+  initialize_array(consts->dw_p_ij_cond_signs, c_f1, AA_ij * AA_ij_padded);
   c_float_t (*dw_p_ij_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond;
   c_float_t (*dw_p_ij_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ij_cond_signs;
 
@@ -875,6 +882,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   }
 
   initialize_array(consts->dv_p_ji_cond, log0, AA_ij * A_i_p_A_j_padded);
+  initialize_array(consts->dv_p_ji_cond_signs, c_f1, AA_ij * A_i_p_A_j_padded);
   c_float_t (*dv_p_ji_cond)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) consts->dv_p_ji_cond;
   c_float_t (*dv_p_ji_cond_signs)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) consts->dv_p_ji_cond_signs;
 
@@ -892,6 +900,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   c_float_t (*dw_p_ji_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond_signs;
 
   initialize_array(consts->dw_p_ji_cond, log0, AA_ij * AA_ij_padded);
+  initialize_array(consts->dw_p_ji_cond_signs, c_f1, AA_ij * AA_ij_padded);
   for (int c = 0; c < A_i; c++) {
     for (int d = 0; d < A_j; d++) {
       for (int b = 0; b < A_j; b++) {

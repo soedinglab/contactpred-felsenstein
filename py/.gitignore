@@ -1,3 +1,11 @@
+optimize_felsenstein_faster.c
+optimize_felsenstein_faster.*.so
+optimize_felsenstein_faster.html
+
+optimize_felsenstein_simd.c
+optimize_felsenstein_simd.*.so
+optimize_felsenstein_simd.html
+
 optimize_felsenstein.c
 optimize_felsenstein.*.so
 optimize_felsenstein.html

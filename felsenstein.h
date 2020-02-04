@@ -209,7 +209,7 @@ typedef struct Constants {
   uint8_t* msa;
 
   int A_i;
-  int A_b;
+  int A_j;
   int A_i_p_A_j;
   int AA_ij;
 

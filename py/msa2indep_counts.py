@@ -5,7 +5,12 @@ from multiprocessing import Pool
 
 from math import exp, sqrt
 
-from optimize_felsenstein_faster import optimize_felsenstein, OptimizationFailure
+try:
+    from optimize_felsenstein_simd import optimize_felsenstein, OptimizationFailure
+    print('--- using simd optimization')
+except ImportError:
+    from optimize_felsenstein_faster import optimize_felsenstein, OptimizationFailure
+    print('--- running without simd optimization')
 
 # hard coded alphabet size
 A = 20
@@ -16,7 +21,7 @@ def create_parser():
     parser.add_argument('n_ijab_out')
     parser.add_argument('--lambda_w', type=float, default=10)
     parser.add_argument('--branch-length', type=float, default=0.1)
-    parser.add_argument('--lbfgs-pgtol', type=float, default=1e-5)
+    parser.add_argument('--lbfgs-pgtol', type=float, default=1e-3)
     parser.add_argument('--lbfgs-factr', type=float, default=1e7)
     parser.add_argument('--n-threads', type=int, default=1)
     parser.add_argument('--w_ijab_out')
@@ -55,12 +60,13 @@ def main():
     jobs = []
     n_pair = np.zeros((L, L, A, A))
     w_full = np.zeros((L, L, A, A))
+
     with Pool(args.n_threads) as pool:
         for i in range(0, L):
             for j in range(i+1, L):
                 job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol))
                 jobs.append(((i, j), job))
- 
+
         for num, ((i, j), job) in enumerate(jobs):
             n_ij, v, w = job.get()
             n_pair[i, j] = n_ij

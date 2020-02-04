@@ -115,7 +115,6 @@ static inline SignedLogExp signed_logsumexp_n(c_float_t* log_vals, c_float_t* si
   return result;
 }
 
-
 typedef struct NodePrecomputation {
   // dim: A*A [a, b]
   c_float_t* Ln_ab;
@@ -261,5 +260,33 @@ void deinitialize_logexpbuffer(LogExpBuffer*);
 
 
 c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
+
+
+// DEBUG stuff
+static inline void print_array_dbg(c_float_t* array, int N) {
+  printf("%s", "DBG: ");
+  for(int n = 0; n < N; n++) {
+    printf("%f ", array[n]);
+  }
+  printf("\n");
+}
+
+static inline void print_array_dbg_loc(char* string, c_float_t* array, int N) {
+  printf("%s (%s) ", "DBG:", string);
+  for(int n = 0; n < N; n++) {
+    printf("%f ", array[n]);
+  }
+  printf("\n");
+}
+
+static inline void error_if_has_nan(char* string, c_float_t* array, int N) {
+  for(int i = 0; i < N; i++) {
+    if (array[i] == INFINITY || array[i] == -INFINITY) {
+      printf("%s: INFINITY detected at position %d.\n", string, i);
+      exit(-2);
+    }
+  }
+}
+
 
 #endif //FELSENSTEIN_FELSENSTEIN_H

@@ -1,37 +1,27 @@
-
 cimport numpy as np
 import numpy as np
 from libc.stdlib cimport malloc, free
 from scipy.optimize import fmin_l_bfgs_b
-ctypedef np.float64_t c_float_t
+ctypedef float c_float_t
 
-cdef extern from "felsenstein_logspace_faster.c":
-    pass
 
 A = 20  # the alphabet is hard-coded to have 20 letters for now
 log0 = -1000  # for numerical reasons we assume that the logarithm of 0 is -1000
 
-cdef extern from "felsenstein.h":
-    
-    ctypedef struct NodePrecomputation:
-        pass
-    
+cdef extern from "felsenstein_logspace_simd.c":
+    pass
+
+cdef extern from "felsenstein_simd.h":
+
     ctypedef struct Node:
         Node* left
         Node* right
-
         int seq_id
         c_float_t phi_left
         c_float_t phi_right
-        
-        NodePrecomputation* data
-        
-    ctypedef struct NodeBuffer:
-        pass
     
     ctypedef struct Buffer:
-        NodeBuffer* left
-        NodeBuffer* right
+        pass
     
     ctypedef struct Constants:
         int L
@@ -39,14 +29,16 @@ cdef extern from "felsenstein.h":
         np.uint8_t* msa
         int i
         int j
-        int A_a
+        int A_i
         int A_j
         int A_i_p_A_j
         int AA_ij
     
-    cdef void initialize_constants(Constants* consts)
-    cdef c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf)
-    cdef void initialize_buffer(NodeBuffer* buffer, Constants* consts)
+    void initialize_constants(Constants* consts)
+    c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf)
+    void initialize_buffer(Buffer* buffer, Constants* consts)
+    void deinitialize_buffer(Buffer*)
+    void deinitialize_constants(Constants*)
 
 
 cdef class ExtraArguments:
@@ -106,6 +98,8 @@ cdef class ExtraArguments:
                 nodes[node_idx].left = NULL
                 nodes[node_idx].right = NULL
                 nodes[node_idx].seq_id = leaf_no
+                nodes[node_idx].phi_left = -1
+                nodes[node_idx].phi_right = -1
                 leaf_no += 1
             else:
                 (left_node, left_time), (right_node, right_time) = connectivity
@@ -114,12 +108,13 @@ cdef class ExtraArguments:
                     nodes[node_idx].phi_left = np.exp(-left_time)
                 else:
                     nodes[node_idx].left = NULL
-                
+                    nodes[node_idx].phi_left = -1
                 if right_node is not None:
                     nodes[node_idx].right = &nodes[right_node]
                     nodes[node_idx].phi_right = np.exp(-right_time)
                 else:
                     nodes[node_idx].right = NULL
+                    nodes[node_idx].phi_right = -1
                 nodes[node_idx].seq_id = inner_no
                 inner_no -= 1
         self.tree_nodes = nodes
@@ -133,55 +128,47 @@ cdef class ExtraArguments:
         consts.msa = &my_msa[0]
         consts.i = 0
         consts.j = 1
-        consts.A_a = A_i
+        consts.A_i = A_i
         consts.A_j = A_j
-        consts.A_i_p_A_j = A_i + A_j
-        consts.AA_ij = A_i * A_j
         
         initialize_constants(&consts)
         self.consts = consts
         
         # preallocate buffer for storing temporary results
         cdef Buffer buffer = Buffer()
-        cdef NodeBuffer* buffer_left = <NodeBuffer*> malloc(sizeof(NodeBuffer))
-        initialize_buffer(buffer_left, &consts)
-        buffer.left = buffer_left
-        cdef NodeBuffer* buffer_right = <NodeBuffer*> malloc(sizeof(NodeBuffer))
-        initialize_buffer(buffer_right, &consts)
-        buffer.right = buffer_right
+        initialize_buffer(&buffer, &consts)
         self.buffer = buffer
         
     def __dealloc__(self):
-        
-        for i in range(self.n_nodes):
-            free(&self.tree_nodes[i])
         free(self.tree_nodes)
-        free(self.buffer.left)
-        free(self.buffer.right)
+        deinitialize_constants(&self.consts)
+        deinitialize_buffer(&self.buffer)
 
 
 def felsenstein_fx_grad(double[:] x, ExtraArguments extra_args):
     cdef Constants* consts = &extra_args.consts
-    AA_ij = extra_args.consts.AA_ij
-    A_i_p_A_j = extra_args.consts.A_i_p_A_j
-    
+    cdef int AA_ij = extra_args.consts.AA_ij
+    cdef int A_i_p_A_j = extra_args.consts.A_i_p_A_j
+
+    x_np = np.asarray(x, dtype=np.float64)
+    cdef c_float_t[:] x_float = x_np.astype(np.float32)
+
     cdef Buffer* buffer = &extra_args.buffer
     cdef c_float_t lam = extra_args.lam
-    grad = np.empty(AA_ij + A_i_p_A_j)
+    grad = np.empty(AA_ij + A_i_p_A_j, dtype=np.float32)
     cdef c_float_t[:] grad_c = grad
-    fx = -calculate_fx_grad(&x[0], &grad_c[0], consts, buffer)
+    fx = -calculate_fx_grad(&x_float[0], &grad_c[0], consts, buffer)
     grad = -grad
     cdef c_float_t penalty = 0
     cdef c_float_t w
-    
+
     cdef int i
-    
     for i in range(AA_ij):
-        w = x[A_i_p_A_j + i]
+        w = x_float[A_i_p_A_j + i]
         penalty += 0.5 * lam * (w*w)
         grad[A_i_p_A_j + i] += lam * w
     
-    return fx + penalty, grad
+    return fx + penalty, grad.astype(np.float, casting='safe')
 
 
 class OptimizationFailure(Exception):

@@ -7,7 +7,7 @@
 void initialize_leaf(Node* leaf, Constants* consts) {
 
   int A_a = consts->A_i;
-  int A_b = consts->A_b;
+  int A_b = consts->A_j;
   int AA_ab = consts->AA_ij;
   int A_a_p_A_b = consts->A_i_p_A_j;
 
@@ -37,7 +37,7 @@ void initialize_leaf(Node* leaf, Constants* consts) {
 void initialize_buffer(NodeBuffer* buffer, Constants* consts) {
 
   int A_a = consts->A_i;
-  int A_b = consts->A_b;
+  int A_b = consts->A_j;
   int A_a_p_A_b = consts->A_i_p_A_j;
   int AA_ab = consts->AA_ij;
 
@@ -81,7 +81,7 @@ void deinitialize_buffer(NodeBuffer* buffer) {
 void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* consts){
 
   int A_a = consts->A_i;
-  int A_b = consts->A_b;
+  int A_b = consts->A_j;
   int AA_ab = consts->AA_ij;
   int A_a_p_A_b = consts->A_i_p_A_j;
 
@@ -284,7 +284,7 @@ void deinitialize_node(Node* node) {
 void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, int8_t* dv_L_ab_signs, c_float_t* dw_L_ab, int8_t* dw_L_ab_signs, int a, int b){
 
   int A_a = consts->A_i;
-  int A_b = consts->A_b;
+  int A_b = consts->A_j;
   int AA_ab = consts->AA_ij;
   int A_a_p_A_b = consts->A_i_p_A_j;
 
@@ -342,7 +342,7 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
 void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 
   int A_a = consts->A_i;
-  int A_b = consts->A_b;
+  int A_b = consts->A_j;
   int AA_ab = consts->AA_ij;
   int A_a_p_A_b = consts->A_i_p_A_j;
 
@@ -438,7 +438,7 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buffer* buf) {
 
   int A_a = consts->A_i;
-  int A_b = consts->A_b;
+  int A_b = consts->A_j;
   int AA_ab = consts->AA_ij;
   int A_a_p_A_b = consts->A_i_p_A_j;
 
@@ -528,7 +528,7 @@ void deinitialize_constants(Constants* consts) {
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
 
   int A_a = consts->A_i;
-  int A_b = consts->A_b;
+  int A_b = consts->A_j;
   int A_a_p_A_b = consts->A_i_p_A_j;
   int AA_ab = consts->AA_ij;
 

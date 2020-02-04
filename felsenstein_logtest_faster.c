@@ -47,6 +47,7 @@ int main() {
   int AA_ab = A_a * A_b;
 
   c_float_t* x = (c_float_t*) calloc(A_a_p_A_b + AA_ab, sizeof(c_float_t));
+
   for(int idx = 0; idx < A_a_p_A_b; idx++) {
     x[idx] = log0;
   }
@@ -75,7 +76,7 @@ int main() {
   consts->i = i;
   consts->j = j;
   consts->A_i = A_a;
-  consts->A_b = A_b;
+  consts->A_j = A_b;
   consts->A_i_p_A_j = A_a_p_A_b;
   consts->AA_ij = AA_ab;
   initialize_constants(consts);

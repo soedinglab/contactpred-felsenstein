@@ -58,6 +58,10 @@ target_link_libraries(felsenstein_log_test16 m)
 add_executable(felsenstein_test16 felsenstein.h felsenstein.c felsenstein_test16.c)
 target_link_libraries(felsenstein_test16 m)
 
-add_executable(felsenstein_simd felsenstein_simd.h felsenstein_logspace_simd.c felsenstein_logtest_simd.c)
+add_executable(felsenstein_simd_test felsenstein_logspace_simd.c felsenstein_logtest_simd.c)
+set_target_properties(felsenstein_simd_test PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
+target_link_libraries(felsenstein_simd_test m)
+
+add_library(felsenstein_simd felsenstein_logspace_simd.c felsenstein_logtest_simd.c)
 set_target_properties(felsenstein_simd PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
 target_link_libraries(felsenstein_simd m)
