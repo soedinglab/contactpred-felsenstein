@@ -173,30 +173,36 @@ def felsenstein_fx_grad(double[:] x, ExtraArguments extra_args):
 
 class OptimizationFailure(Exception):
 
-    def __init__(self, info_object):
+    def __init__(self, info_object, last_x):
         msg = 'Unexpected optimization problem.'
         super().__init__(msg)
         self._info = info_object
+        self._last_x = last_x
 
     @property
     def info(self):
         return self._info
 
+    @property
+    def last_x(self):
+        return self._last_x
 
-def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5):
+
+def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, x0=None):
     
     extra_args = ExtraArguments(msa, i, j, lam_w, tree)
     AA_ij = extra_args.consts.AA_ij
     A_i_p_A_j = extra_args.consts.A_i_p_A_j
     
     N, L = msa.shape
-    x0 = np.zeros(A_i_p_A_j + AA_ij)
+    if x0 is None:
+        x0 = np.zeros(A_i_p_A_j + AA_ij)
     x_opt, fx_opt, info = fmin_l_bfgs_b(felsenstein_fx_grad, x0, args=(extra_args,), 
                                         factr=factr, pgtol=pgtol)
     info['fx_opt'] = fx_opt
 
     if info['warnflag'] != 0:
-        raise OptimizationFailure(info)
+        raise OptimizationFailure(info, x_opt)
 
     x_opt_full = reduced2long_params(x_opt, msa, i, j)
     v = x_opt_full[:2*A].reshape(2, A)

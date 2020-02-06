@@ -24,19 +24,39 @@ def create_parser():
     parser.add_argument('--lbfgs-pgtol', type=float, default=1e-3)
     parser.add_argument('--lbfgs-factr', type=float, default=1e7)
     parser.add_argument('--n-threads', type=int, default=1)
+    parser.add_argument('--n-tries', type=int, default=3)
     parser.add_argument('--w_ijab_out')
     return parser
 
 
-def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol):
+def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
     lambda_w_half = lambda_w / 2
-    try:
-        v, w = optimize_felsenstein(msa, i, j, tree, lambda_w, factr=factr, pgtol=pgtol)
-        v_p, w_p = optimize_felsenstein(msa, i, j, tree, lambda_w_half, factr=factr, pgtol=pgtol)
-    except OptimizationFailure as ex:
-        for key, value in ex.info.items():
-            print(f'{key}:', value)
-        raise
+
+    n_tries = max_tries
+    x0 = None
+    while n_tries > 0:
+        n_tries -= 1
+        try:
+            v, w = optimize_felsenstein(msa, i, j, tree, lambda_w, factr=factr, pgtol=pgtol, x0=x0)
+            break
+        except OptimizationFailure as ex:
+            x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
+    else:
+        raise Exception(f'Failed optimization with lambda_w={lambda_w} after {max_tries} tries.')
+
+    n_tries = max_tries
+    x0 = None
+    while n_tries > 0:
+        n_tries -= 1
+        try:
+            v_p, w_p = optimize_felsenstein(msa, i, j, tree, lambda_w_half, factr=factr, pgtol=pgtol, x0=x0)
+            break
+        except OptimizationFailure as ex:
+            x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
+    else:
+        raise Exception(f'Failed optimization with lambda_w={lambda_w_half} after {max_tries} tries.')
+
+    
     N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
     n_ijab = calculate_nijab(v, w, lambda_w, N_ij)
     return n_ijab, v, w
@@ -52,6 +72,7 @@ def main():
     lambda_w = args.lambda_w
     pgtol = args.lbfgs_pgtol
     factr = args.lbfgs_factr
+    n_tries = args.n_tries
 
     n_mut = args.branch_length
     # building a binary tree with branches of equal, fixed length.
@@ -64,7 +85,7 @@ def main():
     with Pool(args.n_threads) as pool:
         for i in range(0, L):
             for j in range(i+1, L):
-                job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol))
+                job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, n_tries))
                 jobs.append(((i, j), job))
 
         for num, ((i, j), job) in enumerate(jobs):
