@@ -1,3 +1,5 @@
+set -e
+
 FS_SIMD_HEADERS=$FS_REPO/lib/
 FS_HEADERS=$FS_REPO
 
