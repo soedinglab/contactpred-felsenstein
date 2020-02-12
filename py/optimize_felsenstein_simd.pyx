@@ -1,5 +1,6 @@
 cimport numpy as np
 import numpy as np
+from math import exp
 from libc.stdlib cimport malloc, free
 from scipy.optimize import fmin_l_bfgs_b
 ctypedef float c_float_t
@@ -41,6 +42,43 @@ cdef extern from "felsenstein_simd.h":
     void deinitialize_constants(Constants*)
 
 
+cdef map_tree_py_to_c(node, Node* c_array):
+    queue = [node]
+    arr_idx = 0
+    cdef Node* c_node
+    while len(queue) > 0:
+        cur_node = queue.pop(0)
+        c_node = &c_array[arr_idx]
+        c_node.left = NULL
+        c_node.right = NULL
+
+        if cur_node.has_left_child:
+            queue.append(cur_node.left_child)
+            c_node.left = &c_array[arr_idx + len(queue)]
+            c_node.phi_left = exp(-cur_node.left_branchlength)
+        if cur_node.has_right_child:
+            queue.append(cur_node.right_child)
+            c_node.right = &c_array[arr_idx + len(queue)]
+            c_node.phi_right = exp(-cur_node.right_branchlength)
+        if cur_node.is_leaf:
+            c_node.seq_id = cur_node.seq_id
+        
+        arr_idx += 1
+
+
+def count_nodes(node):
+    n_nodes = 0
+    queue = [node]
+    while len(queue) > 0:
+        cur_node = queue.pop(0)
+        n_nodes += 1
+        if cur_node.has_left_child:
+            queue.append(cur_node.left_child)
+        if cur_node.has_right_child:
+            queue.append(cur_node.right_child)
+    return n_nodes
+
+
 cdef class ExtraArguments:
     
     cdef Constants consts
@@ -52,8 +90,7 @@ cdef class ExtraArguments:
     cdef object backmapping_j
     cdef object msa
     
-    def __cinit__(self, msa, i, j, lam, node_info):
-        
+    def __cinit__(self, msa, i, j, lam, tree):
         N, L = msa.shape
         self.lam = lam
         
@@ -75,7 +112,6 @@ cdef class ExtraArguments:
         msa_new[:, col_0] = msa[:, i]
         msa_new[:, col_1] = msa[:, j]
         self.msa = msa_new
-
         for new_aa, old_aa in enumerate(backmapping_i):
             msa_new[msa_new[:, col_0] == old_aa, col_0] = new_aa 
 
@@ -87,38 +123,9 @@ cdef class ExtraArguments:
         A_j = len(backmapping_j)
         
         # translate the tree into the native structure of linked Node objects
-        n_nodes = len(node_info)
+        n_nodes = count_nodes(tree)
         cdef Node* nodes = <Node*> malloc(sizeof(Node)*n_nodes)
-        
-        leaf_no = 0
-        inner_no = -1
-        for node_idx, connectivity in enumerate(node_info):
-            if connectivity is None:
-                # this is a leaf
-                nodes[node_idx].left = NULL
-                nodes[node_idx].right = NULL
-                nodes[node_idx].seq_id = leaf_no
-                nodes[node_idx].phi_left = -1
-                nodes[node_idx].phi_right = -1
-                leaf_no += 1
-            else:
-                (left_node, left_time), (right_node, right_time) = connectivity
-                if left_node is not None:
-                    nodes[node_idx].left = &nodes[left_node]
-                    nodes[node_idx].phi_left = np.exp(-left_time)
-                else:
-                    nodes[node_idx].left = NULL
-                    nodes[node_idx].phi_left = -1
-                if right_node is not None:
-                    nodes[node_idx].right = &nodes[right_node]
-                    nodes[node_idx].phi_right = np.exp(-right_time)
-                else:
-                    nodes[node_idx].right = NULL
-                    nodes[node_idx].phi_right = -1
-                nodes[node_idx].seq_id = inner_no
-                inner_no -= 1
-        self.tree_nodes = nodes
-
+        map_tree_py_to_c(tree, nodes)
 
         # create constant object to be passed to the objective function
         cdef Constants consts = Constants()
@@ -189,7 +196,7 @@ class OptimizationFailure(Exception):
 
 
 def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, x0=None):
-    
+
     extra_args = ExtraArguments(msa, i, j, lam_w, tree)
     AA_ij = extra_args.consts.AA_ij
     A_i_p_A_j = extra_args.consts.A_i_p_A_j
