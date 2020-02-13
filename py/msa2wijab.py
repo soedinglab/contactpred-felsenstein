@@ -24,13 +24,14 @@ def create_parser():
     parser = argparse.ArgumentParser('msa2wijab')
     parser.add_argument('msa_psicov')
     parser.add_argument('w_ijab_out')
-    parser.add_argument('--estimate-nj-tree', action="store_true")
+    parser.add_argument('--estimate-nj-tree', action='store_true')
     parser.add_argument('--lambda_w', type=float, default=10)
     parser.add_argument('--branch-length', type=float, default=0.1)
     parser.add_argument('--lbfgs-pgtol', type=float, default=1e-3)
     parser.add_argument('--lbfgs-factr', type=float, default=1e7)
     parser.add_argument('--n-threads', type=int, default=1)
     parser.add_argument('--n-tries', type=int, default=3)
+    parser.add_argument('--debug', action='store_true')
     return parser
 
 
@@ -41,14 +42,14 @@ def w_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
     while n_tries > 0:
         n_tries -= 1
         try:
-            v, w = optimize_felsenstein(msa, i, j, tree, lambda_w, factr=factr, pgtol=pgtol, x0=x0)
+            v, w, info = optimize_felsenstein(msa, i, j, tree, lambda_w, factr=factr, pgtol=pgtol, x0=x0)
             break
         except OptimizationFailure as ex:
             x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
     else:
         raise Exception(f'Failed optimization with lambda_w={lambda_w} after {max_tries} tries.')
 
-    return v, w
+    return v, w, info
 
 
 def main():
@@ -78,7 +79,10 @@ def main():
                 jobs.append(((i, j), job))
 
         for num, ((i, j), job) in enumerate(jobs):
-            v, w = job.get()
+            v, w, info = job.get()
+            if args.debug:
+                for key, value in info.items():
+                    print(f'{key:20s}|', value)
             w_full[i, j] = w
             print(f'finished {num+1}/{len(jobs)}')
 

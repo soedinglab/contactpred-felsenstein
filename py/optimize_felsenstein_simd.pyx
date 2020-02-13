@@ -215,7 +215,7 @@ def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, x0=Non
     v = x_opt_full[:2*A].reshape(2, A)
     w = x_opt_full[2*A:].reshape(A, A)
 
-    return v, w
+    return v, w, info
 
 
 def reduced2long_params(x, msa, i, j):
