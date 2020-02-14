@@ -3,6 +3,8 @@ from libc.math cimport exp
 import numpy as np
 cimport numpy as np
 
+cdef A = 10
+
 @cython.cdivision(True)
 @cython.boundscheck(False)
 def calc_t_change(np.uint8_t[:] seq_x, np.uint8_t[:] seq_y, int L, double t, double tau, double[:,:] v):
@@ -19,7 +21,7 @@ def calc_t_change(np.uint8_t[:] seq_x, np.uint8_t[:] seq_y, int L, double t, dou
         if x_i == y_i:
             exp_v = exp(v[i, y_i])
             Z = 0
-            for j in range(20):
+            for j in range(A):
                 Z += exp(v[i, j])
             p_i = exp_v / Z
             term1 = p_i + r * (1 - p_i)

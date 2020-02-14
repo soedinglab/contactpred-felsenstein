@@ -309,12 +309,12 @@ def biopython_phylo_to_tree(phylo_tree):
         left_child = Node()
         left_child.parent = tree_node
         tree_node.left_child = left_child
-        tree_node.left_branchlength = left_clade.branch_length
+        tree_node.left_branchlength = max(left_clade.branch_length, 0)
 
         right_child = Node()
         right_child.parent = tree_node
         tree_node.right_child = right_child
-        tree_node.right_branchlength = right_clade.branch_length
+        tree_node.right_branchlength = max(right_clade.branch_length, 0)
 
         tree_queue.append(left_child)
         tree_queue.append(right_child)
