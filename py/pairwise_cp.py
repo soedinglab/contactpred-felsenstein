@@ -46,7 +46,6 @@ def main():
     elif args.correction == 'None':
         predictions = c_ij    
     
-    predictions[np.triu_indices_from(predictions)] = np.nan
     np.save(args.prediction_matrix, predictions)
 
 
