@@ -1,5 +1,6 @@
 import cython
 from libc.math cimport exp
+import math
 import numpy as np
 cimport numpy as np
 
@@ -36,13 +37,22 @@ def calc_t_change(np.uint8_t[:] seq_x, np.uint8_t[:] seq_y, int L, double t, dou
     return num / denom
 
 
-def optimize_t(seq1, seq2, v, prec=1e-6, tau=1, alpha=0.9):
+class NonCovergenceException(RuntimeError):
+    pass
+
+
+def optimize_t(seq1, seq2, v, prec=1e-6, tau=1, alpha=0.9, max_iter=100):
     L = len(seq1)
     t_old = 0.1
-    while(True):
+
+    n_iter = 0
+    while n_iter < max_iter:
         t_new = t_old - alpha * calc_t_change(seq1, seq2, L, t_old, tau, v)
         if abs(t_new - t_old) < prec:
             break
-        t_old = t_new  
+        t_old = t_new
+        n_iter += 1
+    else:
+        raise NonConvergenceException(f'Optimization did not converge after {max_iter} iterations')
+
     return t_new
-    
