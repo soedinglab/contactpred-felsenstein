@@ -37,7 +37,7 @@ def calc_t_change(np.uint8_t[:] seq_x, np.uint8_t[:] seq_y, int L, double t, dou
     return num / denom
 
 
-class NonCovergenceException(RuntimeError):
+class NonConvergenceException(RuntimeError):
     pass
 
 
