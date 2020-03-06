@@ -64,8 +64,12 @@ def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
     else:
         raise Exception(f'Failed optimization with lambda_w={lambda_w_half} after {max_tries} tries.')
 
-    N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
-    n_ijab = calculate_nijab(v, w, lambda_w, N_ij)
+    try:
+        N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
+        n_ijab = calculate_nijab(v, w, lambda_w, N_ij)
+    except OverflowError:
+        n_ijab = np.empty(w.shape)
+        n_ijab[:, :] = np.nan
 
     return n_ijab, v, w, info1, info2
 
