@@ -33,7 +33,9 @@ def create_parser():
     parser.add_argument('--n-tries', type=int, default=3)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--w_ijab_out')
+    parser.add_argument('--w_ijab_prime_out')
     parser.add_argument('--v_ijab_out')
+    parser.add_argument('--v_ijab_prime_out')
     return parser
 
 
@@ -71,7 +73,7 @@ def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
         n_ijab = np.empty(w.shape)
         n_ijab[:, :] = np.nan
 
-    return n_ijab, v, w, info1, info2
+    return n_ijab, v, w, v_p, w_p, info1, info2
 
 
 def calculate_p_ijab(v, w):
@@ -113,6 +115,7 @@ def main():
 
     msa = ccmpred.io.read_msa_psicov(args.msa_psicov)
     N, L = msa.shape
+    A = 20
 
     lambda_w = args.lambda_w
     pgtol = args.lbfgs_pgtol
@@ -125,7 +128,9 @@ def main():
         tree = create_binary_tree(N, args.branch_length)
 
     v_full = np.zeros((L, L, 2, A))
+    v_prime = np.zeros((L, L, 2, A))
     w_full = np.zeros((L, L, A, A))
+    w_prime = np.zeros((L, L, A, A))
     n_full = np.zeros((L, L, A, A))
 
     jobs = []
@@ -136,21 +141,34 @@ def main():
                 jobs.append(((i, j), job))
 
         for num, ((i, j), job) in enumerate(jobs):
-            n, v, w, info1, info2 = job.get()
+            n, v, w, v_p, w_p, info1, info2 = job.get()
             if args.debug:
                 for info in (info1, info2):
                     for key, value in info.items():
                         print(f'{key:20s}|', value)
             v_full[i, j] = v
+            v_prime[i, j] = v_p
             w_full[i, j] = w
+            w_prime[i, j] = w_p
             n_full[i, j] = n
             print(f'finished {num+1}/{len(jobs)}')
+
+    L, L, A, A = n_full.shape
+    for i in range(L):
+        for j in range(0, i):
+            for a in range(A):
+                for b in range(A):
+                    n_full[i, j, a, b] = n_full[j, i, b, a]
 
     np.save(args.n_ijab_out, n_full)
     if args.v_ijab_out:
         np.save(args.v_ijab_out, v_full)
+    if args.v_ijab_prime_out:
+        np.save(args.v_ijab_prime_out, v_prime)
     if args.w_ijab_out:
         np.save(args.w_ijab_out, w_full)
+    if args.w_ijab_prime_out:
+        np.save(args.w_ijab_prime_out, w_prime)
 
 
 class Node:
