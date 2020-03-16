@@ -31,7 +31,6 @@ cdef extern from "felsenstein.h":
     
     ctypedef struct Constants:
         int L;
-        c_float_t* single_aa_frequencies
         Node* phylo_tree;
         np.uint8_t* msa;
         int i;
@@ -39,12 +38,11 @@ cdef extern from "felsenstein.h":
     
     void initialize_constants(Constants* consts);
     cdef c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf)
-    cdef void initialize_buffer(NodeBuffer* buffer)
+    cdef void initialize_buffer(NodeBuffer* buffer, Constants* consts)
 
 
 cdef class ExtraArguments:
     
-    cdef single_aa_frequencies
     cdef Constants consts
     cdef Buffer buffer
     cdef c_float_t lam
@@ -92,22 +90,15 @@ cdef class ExtraArguments:
         consts.msa = &my_msa[0]
         consts.i = i
         consts.j = j
-        aa_counts = np.bincount(msa.ravel(), minlength=20) + 1e-9
-        aa_freqs = np.log(aa_counts / aa_counts.sum())
-        self.single_aa_frequencies = aa_freqs
-        cdef c_float_t* aa_freqs_c = <c_float_t*> malloc(sizeof(c_float_t)*A)
-        for a in range(A):
-            aa_freqs_c[a] = aa_freqs[a]
-        consts.single_aa_frequencies = aa_freqs_c
         initialize_constants(&consts)
         self.consts = consts
         
         cdef Buffer buffer = Buffer()
         cdef NodeBuffer* buffer_left = <NodeBuffer*> malloc(sizeof(NodeBuffer))
-        initialize_buffer(buffer_left)
+        initialize_buffer(buffer_left, &consts)
         buffer.left = buffer_left
         cdef NodeBuffer* buffer_right = <NodeBuffer*> malloc(sizeof(NodeBuffer))
-        initialize_buffer(buffer_right)
+        initialize_buffer(buffer_right, &consts)
         buffer.right = buffer_right
         self.buffer = buffer
         
@@ -118,7 +109,6 @@ cdef class ExtraArguments:
         free(self.tree_nodes)
         free(self.buffer.left)
         free(self.buffer.right)
-        free(self.consts.single_aa_frequencies)
     
     
 def optimize_felsenstein(msa, i, j, tree, lambda_w=10):
