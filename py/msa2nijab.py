@@ -9,13 +9,6 @@ from Bio.Phylo.TreeConstruction import DistanceTreeConstructor, DistanceMatrix
 import pam_distance
 
 
-try:
-    from optimize_felsenstein_simd import optimize_felsenstein, OptimizationFailure
-    print('--- using simd optimization')
-except ImportError:
-    from optimize_felsenstein_faster import optimize_felsenstein, OptimizationFailure
-    print('--- running without simd optimization')
-
 # hard coded alphabet size
 A = 20
 
@@ -36,7 +29,19 @@ def create_parser():
     parser.add_argument('--w_ijab_prime_out')
     parser.add_argument('--v_ijab_out')
     parser.add_argument('--v_ijab_prime_out')
+    parser.add_argument('--fs-impl', choices=['SIMD', 'RED_ALPH'], default='SIMD')
     return parser
+
+
+def pool_initializer(fs_impl):
+    global optimize_felsenstein
+    global OptimizationFailure
+    if fs_impl == 'SIMD':
+        import optimize_felsenstein_simd as fs
+    elif fs_impl == 'RED_ALPH':
+        import optimize_felsenstein_faster as fs
+    optimize_felsenstein = fs.optimize_felsenstein
+    OptimizationFailure = fs.OptimizationFailure
 
 
 def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
@@ -134,7 +139,7 @@ def main():
     n_full = np.zeros((L, L, A, A))
 
     jobs = []
-    with Pool(args.n_threads) as pool:
+    with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
         for i in range(0, L):
             for j in range(i+1, L):
                 job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, n_tries))

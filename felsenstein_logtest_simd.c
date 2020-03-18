@@ -9,7 +9,7 @@ int main() {
   int i = 0;
   int j = 1;
 
-  int N = 16;
+  int N = 4;
   int L = 5;
   uint8_t* msa = (uint8_t*) malloc(sizeof(u_int8_t)*N*L);
   for(int i = 0; i < L; i++) {
@@ -41,12 +41,13 @@ int main() {
     nodes[n].seq_id = n - N + 1;
   }
 
-  int A_i = 4;
+  int A_i = 5;
   int A_j = 4;
   int A_i_p_A_j = A_i + A_j;
   int AA_ij = A_i * A_j;
 
   c_float_t* x = (c_float_t*) calloc(A_i_p_A_j + AA_ij, sizeof(c_float_t));
+
   for(int idx = 0; idx < A_i_p_A_j; idx++) {
     x[idx] = log0;
   }

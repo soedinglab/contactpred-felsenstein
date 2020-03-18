@@ -619,6 +619,7 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buffer) {
 
 c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buffer* buf) {
 
+  c_float_t loge_2 = log(2);
   int A_i = consts->A_i;
   int A_j = consts->A_j;
   int AA_ij = consts->AA_ij;
@@ -680,7 +681,7 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
     grad[A_i_p_A_j + cd] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
   deinitialize_node(root);
-  return fx;
+  return fx * loge_2;
 }
 
 void initialize_constants(Constants* consts) {
@@ -738,6 +739,8 @@ void deinitialize_constants(Constants* consts) {
 
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
 
+  c_float_t loge_2 = log(2);
+
   int A_i = consts->A_i;
   int A_j = consts->A_j;
   int AA_ij_padded = consts->AA_ij_padded;
@@ -751,7 +754,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   initialize_array(p_ab, log0, AA_ij);
   for (int a = 0; a < A_i; a++) {
     for (int b = 0; b < A_j; b++) {
-      p_ab[a * A_j + b] = v[a] + v[A_i + b] + w[a * A_j + b];
+      p_ab[a * A_j + b] = (v[a] + v[A_i + b] + w[a * A_j + b]) / loge_2;
       total_sum += p_ab[a * A_j + b];
     }
   }
@@ -823,7 +826,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   c_float_t tmp_prob[(A_i > A_j) ? A_i : A_j];
   for (int b = 0; b < A_j; b++) {
     for (int a = 0; a < A_i; a++) {
-      c_float_t log_prob = v[a] + w[a * A_j + b];
+      c_float_t log_prob = (v[a] + w[a * A_j + b])  / loge_2;
       tmp_prob[a] = log_prob;
       p_ij_cond[a * A_j + b] = log_prob;
     }
@@ -871,7 +874,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   initialize_array(p_ji_cond, log0, AA_ij);
   for (int a = 0; a < A_i; a++) {
     for (int b = 0; b < A_j; b++) {
-      c_float_t prob = v[A_i + b] + w[a * A_j + b];
+      c_float_t prob = (v[A_i + b] + w[a * A_j + b]) / loge_2;
       p_ji_cond[a * A_j + b] = prob;
       tmp_prob[b] = prob;
     }

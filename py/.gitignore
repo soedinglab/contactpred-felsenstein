@@ -9,3 +9,7 @@ optimize_felsenstein_simd.html
 optimize_felsenstein.c
 optimize_felsenstein.*.so
 optimize_felsenstein.html
+
+pam_distance.c
+pam_distance.*.so
+pam_distance.html

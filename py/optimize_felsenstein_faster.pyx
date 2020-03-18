@@ -4,6 +4,7 @@ import numpy as np
 from libc.stdlib cimport malloc, free
 from scipy.optimize import fmin_l_bfgs_b
 ctypedef np.float64_t c_float_t
+from math import exp
 
 cdef extern from "felsenstein_logspace_faster.c":
     pass
@@ -11,7 +12,7 @@ cdef extern from "felsenstein_logspace_faster.c":
 A = 20  # the alphabet is hard-coded to have 20 letters for now
 log0 = -1000  # for numerical reasons we assume that the logarithm of 0 is -1000
 
-cdef extern from "felsenstein.h":
+cdef extern from "felsenstein_faster.h":
     
     ctypedef struct NodePrecomputation:
         pass
@@ -39,7 +40,7 @@ cdef extern from "felsenstein.h":
         np.uint8_t* msa
         int i
         int j
-        int A_a
+        int A_i
         int A_j
         int A_i_p_A_j
         int AA_ij
@@ -47,6 +48,43 @@ cdef extern from "felsenstein.h":
     cdef void initialize_constants(Constants* consts)
     cdef c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf)
     cdef void initialize_buffer(NodeBuffer* buffer, Constants* consts)
+
+
+cdef map_tree_py_to_c(node, Node* c_array):
+    queue = [node]
+    arr_idx = 0
+    cdef Node* c_node
+    while len(queue) > 0:
+        cur_node = queue.pop(0)
+        c_node = &c_array[arr_idx]
+        c_node.left = NULL
+        c_node.right = NULL
+
+        if cur_node.has_left_child:
+            queue.append(cur_node.left_child)
+            c_node.left = &c_array[arr_idx + len(queue)]
+            c_node.phi_left = exp(-cur_node.left_branchlength)
+        if cur_node.has_right_child:
+            queue.append(cur_node.right_child)
+            c_node.right = &c_array[arr_idx + len(queue)]
+            c_node.phi_right = exp(-cur_node.right_branchlength)
+        if cur_node.is_leaf:
+            c_node.seq_id = cur_node.seq_id
+        
+        arr_idx += 1
+
+
+def count_nodes(node):
+    n_nodes = 0
+    queue = [node]
+    while len(queue) > 0:
+        cur_node = queue.pop(0)
+        n_nodes += 1
+        if cur_node.has_left_child:
+            queue.append(cur_node.left_child)
+        if cur_node.has_right_child:
+            queue.append(cur_node.right_child)
+    return n_nodes
 
 
 cdef class ExtraArguments:
@@ -60,7 +98,7 @@ cdef class ExtraArguments:
     cdef object backmapping_j
     cdef object msa
     
-    def __cinit__(self, msa, i, j, lam, node_info):
+    def __cinit__(self, msa, i, j, lam, tree):
         
         N, L = msa.shape
         self.lam = lam
@@ -95,34 +133,9 @@ cdef class ExtraArguments:
         A_j = len(backmapping_j)
         
         # translate the tree into the native structure of linked Node objects
-        n_nodes = len(node_info)
+        n_nodes = count_nodes(tree)
         cdef Node* nodes = <Node*> malloc(sizeof(Node)*n_nodes)
-        
-        leaf_no = 0
-        inner_no = -1
-        for node_idx, connectivity in enumerate(node_info):
-            if connectivity is None:
-                # this is a leaf
-                nodes[node_idx].left = NULL
-                nodes[node_idx].right = NULL
-                nodes[node_idx].seq_id = leaf_no
-                leaf_no += 1
-            else:
-                (left_node, left_time), (right_node, right_time) = connectivity
-                if left_node is not None:
-                    nodes[node_idx].left = &nodes[left_node]
-                    nodes[node_idx].phi_left = np.exp(-left_time)
-                else:
-                    nodes[node_idx].left = NULL
-                
-                if right_node is not None:
-                    nodes[node_idx].right = &nodes[right_node]
-                    nodes[node_idx].phi_right = np.exp(-right_time)
-                else:
-                    nodes[node_idx].right = NULL
-                nodes[node_idx].seq_id = inner_no
-                inner_no -= 1
-        self.tree_nodes = nodes
+        map_tree_py_to_c(tree, nodes)
 
 
         # create constant object to be passed to the objective function
@@ -133,7 +146,7 @@ cdef class ExtraArguments:
         consts.msa = &my_msa[0]
         consts.i = 0
         consts.j = 1
-        consts.A_a = A_i
+        consts.A_i = A_i
         consts.A_j = A_j
         consts.A_i_p_A_j = A_i + A_j
         consts.AA_ij = A_i * A_j
@@ -196,26 +209,27 @@ class OptimizationFailure(Exception):
         return self._info
 
 
-def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5):
+def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5,  x0=None):
     
     extra_args = ExtraArguments(msa, i, j, lam_w, tree)
     AA_ij = extra_args.consts.AA_ij
     A_i_p_A_j = extra_args.consts.A_i_p_A_j
     
     N, L = msa.shape
-    x0 = np.zeros(A_i_p_A_j + AA_ij)
+    if x0 is None:
+        x0 = np.zeros(A_i_p_A_j + AA_ij)
     x_opt, fx_opt, info = fmin_l_bfgs_b(felsenstein_fx_grad, x0, args=(extra_args,), 
                                         factr=factr, pgtol=pgtol)
     info['fx_opt'] = fx_opt
 
     if info['warnflag'] != 0:
-        raise OptimizationFailure(info)
+        raise OptimizationFailure(info, x_opt)
 
     x_opt_full = reduced2long_params(x_opt, msa, i, j)
     v = x_opt_full[:2*A].reshape(2, A)
     w = x_opt_full[2*A:].reshape(A, A)
 
-    return v, w
+    return v, w, info
 
 
 def reduced2long_params(x, msa, i, j):

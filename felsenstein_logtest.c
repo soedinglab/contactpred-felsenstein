@@ -13,12 +13,14 @@ int main() {
   int L = 5;
   uint8_t* msa = (uint8_t*) malloc(sizeof(u_int8_t)*N*L);
   for(int i = 0; i < L; i++) {
-    msa[0*L + i] = 0;
-    msa[1*L + i] = 2;
-    msa[2*L + i] = 1;
-    msa[3*L + i] = 1;
+    for(int j = 0; j < N; j++) {
+      if (j < N / 2) {
+        msa[j*L + i] = 1;
+      } else {
+        msa[j*L + i] = 2;
+      }
+    }
   }
-
   c_float_t t1 = 0.2;
   c_float_t phi1 = exp(-t1);
   c_float_t t2 = 0.2;
@@ -28,7 +30,6 @@ int main() {
   for(int idx = 0; idx < N_COL*A; idx++) {
     x[idx] = log0;
   }
-
   x[0] = 1;
   x[1] = 0;
   x[2] = 0;
@@ -38,59 +39,37 @@ int main() {
 
   for(int a = 0; a < 3; a++) {
     for(int b = 0; b < 3; b++) {
-      x[2*A + a*A + b] = a<b ? 1 : 2;
+      x[N_COL*A + a * A + b] = a < b ? 1 : 2;
     }
+  }
+
+  Node* nodes = (Node*) malloc(sizeof(Node)*(2*N - 1));
+  for(int n = 0; n < N - 1; n++) {
+    nodes[n].seq_id = -n - 1;
+    nodes[n].left = nodes + 2*n + 1;
+    nodes[n].right = nodes + 2*n + 2;
+    nodes[n].phi_left = phi1;
+    nodes[n].phi_right = phi2;
+  }
+  for(int n = N - 1; n < 2*N - 1; n++) {
+    nodes[n].left = NULL;
+    nodes[n].right = NULL;
+    nodes[n].seq_id = n - N + 1;
   }
 
   c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(N_COL*A + A*A));
 
-  Node ll_node;
-  ll_node.seq_id = 0;
-  ll_node.left = NULL;
-  ll_node.right = NULL;
-
-  Node lr_node;
-  lr_node.seq_id = 1;
-  lr_node.left = NULL;
-  lr_node.right = NULL;
-
-  Node rl_node;
-  rl_node.seq_id = 2;
-  rl_node.left = NULL;
-  rl_node.right = NULL;
-
-  Node rr_node;
-  rr_node.seq_id = 3;
-  rr_node.left = NULL;
-  rr_node.right = NULL;
-
-  Node left_node;
-  left_node.left = &ll_node;
-  left_node.right = &lr_node;
-  left_node.phi_left = phi1;
-  left_node.phi_right = phi2;
-  left_node.seq_id = -2;
-
-  Node right_node;
-  right_node.left = &rl_node;
-  right_node.right = &rr_node;
-  right_node.phi_left = phi1;
-  right_node.phi_right = phi2;
-  right_node.seq_id = -3;
-
-  Node* root = malloc(sizeof(Node));
-  root->phi_left = phi1;
-  root->phi_right = phi2;
-  root->left = &left_node;
-  root->right = &right_node;
-  root->seq_id = -1;
-
   Constants* consts = malloc(sizeof(Constants));
-  consts->phylo_tree = root;
+  consts->phylo_tree = nodes;
   consts->msa = msa;
   consts->L = L;
   consts->i = i;
   consts->j = j;
+  consts->A_i = A;
+  consts->A_j = A;
+  consts->A_i_p_A_j = A + A;
+  consts->AA_ij = A*A;
+
   initialize_constants(consts);
 
   Buffer* buffer = malloc(sizeof(Buffer));
@@ -102,12 +81,12 @@ int main() {
   c_float_t fx = calculate_fx_grad(x, grad, consts, buffer);
   printf("fx= %e\n", fx);
 
+  //exit(-2);
   c_float_t epsilon = 1e-9;
   int pos = 0;
 
 
-  for(int l = 0; l < N_COL; l++) {
-    for(int c = 0; c < A; c++) {
+  for(int lc = 0; lc < N_COL*A; lc++) {
       calculate_fx_grad(x, grad, consts, buffer);
       c_float_t target_grad = grad[pos];
 
@@ -116,9 +95,8 @@ int main() {
       x[pos] -= 2*epsilon;
       c_float_t fx_rev = calculate_fx_grad(x, grad, consts, buffer);
       x[pos] += epsilon;
-      printf("v|i=%d|c=%d %e / %e\n", l, c, target_grad, (fx_fwd - fx_rev) / (2*epsilon));
+      printf("v|ic=%d %e / %e\n", lc, target_grad, (fx_fwd - fx_rev) / (2*epsilon));
       pos++;
-    }
   }
 
 

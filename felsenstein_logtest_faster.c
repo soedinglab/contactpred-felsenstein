@@ -3,13 +3,13 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include "felsenstein.h"
+#include "felsenstein_faster.h"
 
 int main() {
   int i = 0;
   int j = 1;
 
-  int N = 16;
+  int N = 4;
   int L = 5;
   uint8_t* msa = (uint8_t*) malloc(sizeof(u_int8_t)*N*L);
   for(int i = 0; i < L; i++) {
@@ -41,33 +41,30 @@ int main() {
     nodes[n].seq_id = n - N + 1;
   }
 
-  int A_a = 4;
-  int A_b = 4;
-  int A_a_p_A_b = A_a + A_b;
-  int AA_ab = A_a * A_b;
+  int A_i = 5;
+  int A_j = 4;
+  int A_i_p_A_j = A_i + A_j;
+  int AA_ij = A_i * A_j;
 
-  c_float_t* x = (c_float_t*) calloc(A_a_p_A_b + AA_ab, sizeof(c_float_t));
+  c_float_t* x = (c_float_t*) calloc(A_i_p_A_j + AA_ij, sizeof(c_float_t));
 
-  for(int idx = 0; idx < A_a_p_A_b; idx++) {
+  for(int idx = 0; idx < A_i_p_A_j; idx++) {
     x[idx] = log0;
   }
   x[0] = 1;
   x[1] = 0;
   x[2] = 0;
-  x[A_a + 0] = 0;
-  x[A_a + 1] = 0;
-  x[A_a + 2] = 0;
+  x[A_i + 0] = 0;
+  x[A_i + 1] = 0;
+  x[A_i + 2] = 0;
 
   for(int a = 0; a < 3; a++) {
     for(int b = 0; b < 3; b++) {
-      x[A_a_p_A_b + a*A_b + b] = a<b ? 1 : 2;
+      x[A_i_p_A_j + a * A_j + b] = a < b ? 1 : 2;
     }
   }
 
-
-  c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(A_a_p_A_b + AA_ab));
-
-
+  c_float_t* grad = (c_float_t*) malloc(sizeof(c_float_t)*(A_i_p_A_j + AA_ij));
 
   Constants* consts = malloc(sizeof(Constants));
   consts->phylo_tree = nodes;
@@ -75,10 +72,8 @@ int main() {
   consts->L = L;
   consts->i = i;
   consts->j = j;
-  consts->A_i = A_a;
-  consts->A_j = A_b;
-  consts->A_i_p_A_j = A_a_p_A_b;
-  consts->AA_ij = AA_ab;
+  consts->A_i = A_i;
+  consts->A_j = A_j;
   initialize_constants(consts);
 
   Buffer* buffer = malloc(sizeof(Buffer));
@@ -89,10 +84,12 @@ int main() {
 
   c_float_t fx = calculate_fx_grad(x, grad, consts, buffer);
   printf("fx= %e\n", fx);
-
+  #ifdef DEBUG
+  exit(-2);
+  #endif
   c_float_t epsilon = 1e-9;
   int pos = 0;
-  for(int lc = 0; lc < A_a_p_A_b; lc++) {
+  for(int lc = 0; lc < A_i_p_A_j; lc++) {
     calculate_fx_grad(x, grad, consts, buffer);
     c_float_t target_grad = grad[pos];
 
@@ -105,8 +102,8 @@ int main() {
     pos++;
   }
 
-  for(int c = 0; c < A_a; c++) {
-    for(int d = 0; d < A_b; d++) {
+  for(int c = 0; c < A_i; c++) {
+    for(int d = 0; d < A_j; d++) {
       calculate_fx_grad(x, grad, consts, buffer);
       c_float_t target_grad = grad[pos];
 

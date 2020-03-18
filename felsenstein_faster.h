@@ -4,6 +4,13 @@
 #include <stdint.h>
 #include <math.h>
 
+//#define DEBUG
+
+#ifdef DEBUG
+#include <stdlib.h>
+#include <stdio.h>
+#endif
+
 #define c_f0 0.0
 #define N_COL 2
 #define A 20
@@ -20,6 +27,11 @@ typedef struct SignedLogExp {
   c_float_t result;
 } SignedLogExp;
 
+static inline void initialize_array_int8(int8_t* arr, int8_t value, int length) {
+  for(int i = 0; i < length; i++) {
+    arr[i] = value;
+  }
+}
 
 static inline void initialize_array(c_float_t* arr, c_float_t value, int length) {
   for(int i = 0; i < length; i++) {
@@ -231,5 +243,43 @@ void precompute_buffer(NodeBuffer* buffer, NodePrecomputation* data, Constants* 
 void deinitialize_buffer(NodeBuffer*);
 
 c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
+
+// DEBUG stuff
+static inline void print_array_dbg(c_float_t* array, int N) {
+  printf("%s", "DBG: ");
+  for(int n = 0; n < N; n++) {
+    printf("%f ", array[n]);
+  }
+  printf("\n");
+}
+
+static inline void print_array_dbg_loc(char* string, c_float_t* array, int N) {
+  #ifdef DEBUG
+  printf("%s (%s) ", "DBG:", string);
+  for(int n = 0; n < N; n++) {
+    printf("%f ", array[n]);
+  }
+  printf("\n");
+  #endif
+}
+
+static inline void print_array_dbg_loc_int8(char* string, int8_t* array, int N) {
+  #ifdef DEBUG
+  printf("%s (%s) ", "DBG:", string);
+  for(int n = 0; n < N; n++) {
+    printf("%i ", array[n]);
+  }
+  printf("\n");
+  #endif
+}
+
+static inline void error_if_has_nan(char* string, c_float_t* array, int N) {
+  for(int i = 0; i < N; i++) {
+    if (array[i] == INFINITY || array[i] == -INFINITY) {
+      printf("%s: INFINITY detected at position %d.\n", string, i);
+      exit(-2);
+    }
+  }
+}
 
 #endif //FELSENSTEIN_FELSENSTEIN_H

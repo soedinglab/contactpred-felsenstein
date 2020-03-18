@@ -1,5 +1,9 @@
 set -e
 
+if [[ -z $FS_REPO ]]; then
+  FS_REPO=$PWD/..
+fi
+
 FS_SIMD_HEADERS=$FS_REPO/lib/
 FS_HEADERS=$FS_REPO
 
