@@ -69,7 +69,7 @@ def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries, debug):
             v_p, w_p, info2 = optimize_felsenstein(msa, i, j, tree, lambda_w_half, factr=factr, pgtol=pgtol, x0=x0)
             break
         except OptimizationFailure as ex:
-            if args.debug:
+            if debug:
                 print('Failed linesearch in lambda_w_half optimization')
             x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
     else:
