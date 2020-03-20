@@ -157,7 +157,7 @@ def main():
                 w_full[i, j] = w
                 w_prime[i, j] = w_p
                 n_full[i, j] = n
-                print(f'finished {num+1}/{len(jobs)}')
+                print(f'finished {num+1}/{len(jobs)}', flush=True)
     else:
 
         pool_initializer(args.fs_impl)
@@ -173,7 +173,7 @@ def main():
                 w_full[i, j] = w
                 w_prime[i, j] = w_p
                 n_full[i, j] = n
-                print(f'finished contact i={i}/j={j}')
+                print(f'finished contact i={i}/j={j}', flush=True)
 
 
     L, L, A, A = n_full.shape
