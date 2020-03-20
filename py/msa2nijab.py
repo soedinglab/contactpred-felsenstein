@@ -44,7 +44,7 @@ def pool_initializer(fs_impl):
     OptimizationFailure = fs.OptimizationFailure
 
 
-def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
+def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries, debug):
 
     lambda_w_half = lambda_w / 2
     n_tries = max_tries
@@ -56,6 +56,8 @@ def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
             v, w, info1 = optimize_felsenstein(msa, i, j, tree, lambda_w, factr=factr, pgtol=pgtol, x0=x0)
             break
         except OptimizationFailure as ex:
+            if debug:
+                print('Failed linesearch in lambda_w optimization')
             x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
     else:
         raise Exception(f'Failed optimization with lambda_w={lambda_w} after {max_tries} tries.')
@@ -67,6 +69,8 @@ def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries):
             v_p, w_p, info2 = optimize_felsenstein(msa, i, j, tree, lambda_w_half, factr=factr, pgtol=pgtol, x0=x0)
             break
         except OptimizationFailure as ex:
+            if args.debug:
+                print('Failed linesearch in lambda_w_half optimization')
             x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
     else:
         raise Exception(f'Failed optimization with lambda_w={lambda_w_half} after {max_tries} tries.')
@@ -138,25 +142,39 @@ def main():
     w_prime = np.zeros((L, L, A, A))
     n_full = np.zeros((L, L, A, A))
 
-    jobs = []
-    with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
+    if not args.debug:
+        jobs = []
+        with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
+            for i in range(0, L):
+                for j in range(i+1, L):
+                    job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, n_tries, args.debug))
+                    jobs.append(((i, j), job))
+
+            for num, ((i, j), job) in enumerate(jobs):
+                n, v, w, v_p, w_p, info1, info2 = job.get()
+                v_full[i, j] = v
+                v_prime[i, j] = v_p
+                w_full[i, j] = w
+                w_prime[i, j] = w_p
+                n_full[i, j] = n
+                print(f'finished {num+1}/{len(jobs)}')
+    else:
+
+        pool_initializer(args.fs_impl)
+
         for i in range(0, L):
             for j in range(i+1, L):
-                job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, n_tries))
-                jobs.append(((i, j), job))
-
-        for num, ((i, j), job) in enumerate(jobs):
-            n, v, w, v_p, w_p, info1, info2 = job.get()
-            if args.debug:
+                n, v, w, v_p, w_p, info1, info2 = n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, n_tries, args.debug)
                 for info in (info1, info2):
                     for key, value in info.items():
                         print(f'{key:20s}|', value)
-            v_full[i, j] = v
-            v_prime[i, j] = v_p
-            w_full[i, j] = w
-            w_prime[i, j] = w_p
-            n_full[i, j] = n
-            print(f'finished {num+1}/{len(jobs)}')
+                v_full[i, j] = v
+                v_prime[i, j] = v_p
+                w_full[i, j] = w
+                w_prime[i, j] = w_p
+                n_full[i, j] = n
+                print(f'finished contact i={i}/j={j}')
+
 
     L, L, A, A = n_full.shape
     for i in range(L):
