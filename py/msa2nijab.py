@@ -2,8 +2,10 @@ import argparse
 import copy
 import math
 from multiprocessing import Pool
+from datetime import datetime
 
 import numpy as np
+np.random.seed(42)
 import ccmpred
 from Bio.Phylo.TreeConstruction import DistanceTreeConstructor, DistanceMatrix
 import pam_distance
@@ -22,6 +24,7 @@ def create_parser():
     parser.add_argument('--branch-length', type=float, default=0.1)
     parser.add_argument('--lbfgs-pgtol', type=float, default=1e-3)
     parser.add_argument('--lbfgs-factr', type=float, default=1e7)
+    parser.add_argument('--lbfgs-maxls', type=int, default=20)
     parser.add_argument('--n-threads', type=int, default=1)
     parser.add_argument('--n-tries', type=int, default=3)
     parser.add_argument('--debug', action='store_true')
@@ -44,36 +47,41 @@ def pool_initializer(fs_impl):
     OptimizationFailure = fs.OptimizationFailure
 
 
-def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries, debug):
-
-    lambda_w_half = lambda_w / 2
+def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries):
+    x0 = None
+    n_fun_eval = 0
+    grad_norm = np.inf
+    best_v = None
+    best_w = None
+    info = {}
     n_tries = max_tries
-
-    x0 = None
     while n_tries > 0:
         n_tries -= 1
         try:
-            v, w, info1 = optimize_felsenstein(msa, i, j, tree, lambda_w, factr=factr, pgtol=pgtol, x0=x0)
+            v, w, opt_info = optimize_felsenstein(
+                msa, i, j, tree, lambda_w, factr=factr, pgtol=pgtol, max_ls_steps=max_ls_steps, x0=x0
+            )
+            best_v, best_w = v, w
+            grad_norm = np.linalg.norm(opt_info['grad'])
+            n_fun_eval += opt_info['funcalls']
             break
         except OptimizationFailure as ex:
-            if debug:
-                print('Failed linesearch in lambda_w optimization')
-            x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
-    else:
-        raise Exception(f'Failed optimization with lambda_w={lambda_w} after {max_tries} tries.')
+            opt_info = ex.info
+            n_fun_eval += opt_info['funcalls']
+            grad_norm_try = np.linalg.norm(opt_info['grad'])
+            if grad_norm_try < grad_norm:
+                best_v, best_w = ex.v_opt, ex.w_opt
+            x0 = ex.last_x + np.random.normal(0, 1e-1, len(ex.last_x))
+    info['total_fun_calls'] = n_fun_eval
+    info['grad_norm'] = grad_norm
+    info['n_tries'] = max_tries - n_tries
+    return best_v, best_w, info
 
-    x0 = None
-    while n_tries > 0:
-        n_tries -= 1
-        try:
-            v_p, w_p, info2 = optimize_felsenstein(msa, i, j, tree, lambda_w_half, factr=factr, pgtol=pgtol, x0=x0)
-            break
-        except OptimizationFailure as ex:
-            if debug:
-                print('Failed linesearch in lambda_w_half optimization')
-            x0 = ex.last_x + np.random.normal(0, pgtol, len(ex.last_x))
-    else:
-        raise Exception(f'Failed optimization with lambda_w={lambda_w_half} after {max_tries} tries.')
+def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries):
+
+    lambda_w_half = lambda_w/2
+    v, w, info_vw = optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries)
+    v_p, w_p, info_vw_p = optimize_vw(msa, i, j, tree, lambda_w_half, factr, pgtol, max_ls_steps, max_tries)
 
     try:
         N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
@@ -82,7 +90,7 @@ def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_tries, debug):
         n_ijab = np.empty(w.shape)
         n_ijab[:, :] = np.nan
 
-    return n_ijab, v, w, v_p, w_p, info1, info2
+    return n_ijab, v, w, v_p, w_p, info_vw, info_vw_p
 
 
 def calculate_p_ijab(v, w):
@@ -147,7 +155,7 @@ def main():
         with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
             for i in range(0, L):
                 for j in range(i+1, L):
-                    job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, n_tries, args.debug))
+                    job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, args.lbfgs_maxls, n_tries))
                     jobs.append(((i, j), job))
 
             for num, ((i, j), job) in enumerate(jobs):
@@ -157,7 +165,20 @@ def main():
                 w_full[i, j] = w
                 w_prime[i, j] = w_p
                 n_full[i, j] = n
-                print(f'finished {num+1}/{len(jobs)}', flush=True)
+                finish_time = datetime.today().strftime("%Y/%m/%d|%H:%M:%S")
+                n_eval1 = info1['total_fun_calls']
+                n_eval2 = info2['total_fun_calls']
+                grad_norm1 = info1['grad_norm']
+                grad_norm2 = info2['grad_norm']
+                n_tries1 = info1['n_tries']
+                n_tries2 = info2['n_tries']
+                print(
+                    f'{finish_time} finished {num+1}/{len(jobs)} ',
+                    f'[fun_evals: {n_eval1}|{n_eval2},',
+                    f' grad_norms: {grad_norm1:.2e}|{grad_norm2:.2e},',
+                    f' n_tries: {n_tries1}|{n_tries2}]',
+                    sep='', flush=True
+                )
     else:
 
         pool_initializer(args.fs_impl)
