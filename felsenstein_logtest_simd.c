@@ -84,7 +84,7 @@ int main() {
   c_float_t fx = calculate_fx_grad(x, grad, consts, buffer);
   printf("fx= %e\n", fx);
 
-  c_float_t epsilon = 1e-3;
+  c_float_t epsilon = 1e-4;
   int pos = 0;
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     calculate_fx_grad(x, grad, consts, buffer);

@@ -158,7 +158,60 @@ static inline simd_float simdf32_flog2(simd_float X) {
   R = simdf32_mul(R, X);                   // R = ((((a*X+b)*X+c)*X+d)*X+e)*X ~ log2(1+X) !!
   R = simdf32_add(R, simdi32_i2f(E));  // convert integer exponent to float and add to mantisse
   return R;
+}
 
+static inline simd_float simdf32_flog2_o9(simd_float X) {
+  // max deviation < 1.8E-7
+  const simd_int CONST32_0x7f = simdi32_set(0x7f);
+  const simd_int CONST32_0x7fffff = simdi32_set(0x7fffff);
+  const simd_int CONST32_0x3f800000 = simdi32_set(0x3f800000);
+  const simd_float  CONST32_1f = simdf32_set(1.0);
+  const float a=+0.00539809f;
+  const float b=-0.03314491f;
+  const float c=+0.09574013f;
+  const float d=-0.18045487f;
+  const float e=+0.26626530f;
+  const float f=-0.35534727f;
+  const float g=+0.48014241f;
+  const float h=-0.72129244f;
+  const float i=1-a-b-c-d-e-f-g-h;
+
+  const simd_float  CONST32_A = simdf32_set(a);
+  const simd_float  CONST32_B = simdf32_set(b);
+  const simd_float  CONST32_C = simdf32_set(c);
+  const simd_float  CONST32_D = simdf32_set(d);
+  const simd_float  CONST32_E = simdf32_set(e);
+  const simd_float  CONST32_F = simdf32_set(f);
+  const simd_float  CONST32_G = simdf32_set(g);
+  const simd_float  CONST32_H = simdf32_set(h);
+  const simd_float  CONST32_I = simdf32_set(i);
+
+  simd_int E; // exponents of X
+  simd_float R; //  result
+  E = simdi32_srli((simd_int) X, 23);    // shift right by 23 bits to obtain exponent+127
+  E = simdi32_sub(E, CONST32_0x7f);     // subtract 127 = 0x7f
+  X = (simd_float) simdi_and((simd_int) X, CONST32_0x7fffff);  // mask out exponent => mantisse
+  X = (simd_float) simdi_or ((simd_int) X, CONST32_0x3f800000); // set exponent to 127 (i.e., 0)
+  X = simdf32_sub(X, CONST32_1f);          // subtract one from mantisse
+  R = simdf32_mul(X, CONST32_A);           // R = a*X
+  R = simdf32_add(R, CONST32_B);           // R = a*X+b
+  R = simdf32_mul(R, X);                   // R = (a*X+b)*X
+  R = simdf32_add(R, CONST32_C);           // R = (a*X+b)*X+c
+  R = simdf32_mul(R, X);                   // R = ((a*X+b)*X+c)*X
+  R = simdf32_add(R, CONST32_D);           // R = ((a*X+b)*X+c)*X+d
+  R = simdf32_mul(R, X);                   // R = (((a*X+b)*X+c)*X+d)*X
+  R = simdf32_add(R, CONST32_E);           // R = (((a*X+b)*X+c)*X+d)*X+e
+  R = simdf32_mul(R, X);                   // R = ((((a*X+b)*X+c)*X+d)*X+e)*X
+  R = simdf32_add(R, CONST32_F);           // R = ((((a*X+b)*X+c)*X+d)*X+e)*X+f
+  R = simdf32_mul(R, X);                   // R = (((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X
+  R = simdf32_add(R, CONST32_G);           // R = (((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g
+  R = simdf32_mul(R, X);                   // R = ((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X
+  R = simdf32_add(R, CONST32_H);           // R = (((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)
+  R = simdf32_mul(R, X);                   // R = ((((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)*X)
+  R = simdf32_add(R, CONST32_I);           // R = ((((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)*X)+i
+  R = simdf32_mul(R, X);                   // R = (((((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)*X)+i)*X ~ log2(1+X) !!
+  R = simdf32_add(R, simdi32_i2f(E));  // convert integer exponent to float and add to mantisse
+  return R;
 }
 
 static inline void add_array(c_float_t* out, c_float_t* x, c_float_t* y, size_t N) {
@@ -203,7 +256,7 @@ static inline void pow2_array(c_float_t* out, c_float_t* x, size_t N) {
 static inline void log2_array(c_float_t* out, c_float_t* x, size_t N) {
   for(int n = 0; n < N; n+=VECSIZE_FLOAT) {
     simd_float x_simd = simdf32_load(x + n);
-    simdf32_store(out + n, simdf32_flog2(x_simd));
+    simdf32_store(out + n, simdf32_flog2_o9(x_simd));
   }
 }
 
