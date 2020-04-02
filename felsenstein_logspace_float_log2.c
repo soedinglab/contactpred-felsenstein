@@ -1,4 +1,4 @@
-#include "felsenstein_lin.h"
+#include "felsenstein_float_log2.h"
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -270,8 +270,8 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
   NodePrecomputation *child_data = node->data;
   NodeBuffer* child_buffer = buffer;
 
-  c_float_t log_r = log(phi);
-  c_float_t log_1mr = log(1 - phi);
+  c_float_t log_r = log2(phi);
+  c_float_t log_1mr = log2(1 - phi);
   c_float_t mut2 = 2*log_1mr + child_buffer->Ln;
   c_float_t mut1 = log_r + log_1mr + logsumexp2(child_buffer->Ln_ia[a], child_buffer->Ln_jb[b]);
   c_float_t mut0 = 2*log_r + child_data->Ln_ab[a*A + b];
@@ -414,6 +414,7 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
 
 c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buffer* buf) {
 
+  c_float_t loge_2 = log(2);
   precalculate_constants(consts, x, x + N_COL*A);
   Node* root = consts->phylo_tree;
 
@@ -440,7 +441,7 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
       buffer_2AA_signs[base_idx + 1] = consts->dv_p_ab_signs[lc * AA + ab];
     }
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA);
-    grad[lc] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
+    grad[lc] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
   for(int cd = 0; cd < AA; cd++) {
     for(int ab = 0; ab < AA; ab++) {
@@ -451,11 +452,11 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
         buffer_2AA_signs[base_idx + 1] = consts->dw_p_ab_signs[cd*AA + ab];
     }
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA);
-    grad[N_COL*A + cd] = logsumexp_result.sign * exp(logsumexp_result.result - fx);
+    grad[N_COL*A + cd] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
 
   deinitialize_node(root);
-  return fx;
+  return fx * loge_2;
 }
 
 void initialize_constants(Constants* consts) {
@@ -495,12 +496,14 @@ void deinitialize_constants(Constants* consts) {
 }
 
 void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
+
+  c_float_t loge_2 =  log(2);
   // p_ab related precomputations
   c_float_t *p_ab = consts->p_ab;
   initialize_array(p_ab, log0, AA);
   for (int a = 0; a < A; a++) {
     for (int b = 0; b < A; b++) {
-      p_ab[a * A + b] = v[0 * A + a] + v[1 * A + b] + w[a * A + b];
+      p_ab[a * A + b] = (v[0 * A + a] + v[1 * A + b] + w[a * A + b]) / loge_2;
     }
   }
   c_float_t normalization = logsumexpn(p_ab, AA);
@@ -566,7 +569,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   c_float_t tmp_prob[A];
   for (int b = 0; b < A; b++) {
     for (int a = 0; a < A; a++) {
-      c_float_t log_prob = v[0 * A + a] + w[a * A + b];
+      c_float_t log_prob = (v[0 * A + a] + w[a * A + b]) / loge_2;
       tmp_prob[a] = log_prob;
       p_ij_cond[a*A + b] = log_prob;
     }
@@ -608,7 +611,7 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   initialize_array(p_ji_cond, log0, AA);
   for (int a = 0; a < A; a++) {
     for (int b = 0; b < A; b++) {
-      c_float_t prob = v[1 * A + b] + w[a * A + b];
+      c_float_t prob = (v[1 * A + b] + w[a * A + b]) / loge_2;
       p_ji_cond[b*A + a] = prob;
       tmp_prob[b] = prob;
     }

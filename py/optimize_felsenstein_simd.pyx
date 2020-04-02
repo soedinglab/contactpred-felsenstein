@@ -228,6 +228,17 @@ def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, max_ls
     return v, w, info
 
 
+def get_parameter_length(msa, i, j):
+    A_i = len(np.unique(msa[:,i]))
+    A_j = len(np.unique(msa[:,j]))
+    return A_i+A_j + A_i*A_j
+
+
+def evaluate_felsenstein(x0, msa, i, j, tree, lam_w, vw=True):
+    extra_args = ExtraArguments(msa, i, j, lam_w, tree)
+    return felsenstein_fx_grad(x0, extra_args)
+
+
 def reduced2long_params(x, msa, i, j):
     counts_i = np.bincount(msa[:,i], minlength=A)
     counts_j = np.bincount(msa[:,j], minlength=A)

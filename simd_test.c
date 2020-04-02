@@ -4,7 +4,7 @@
 //
 #include <stdio.h>
 #include "simd.h"
-#include "simd_functions.h"
+#include "simd_functions_ps.h"
 #include <string.h>
 
 #define pad_float(N)  (N + (VECSIZE_FLOAT-1))/VECSIZE_FLOAT*VECSIZE_FLOAT

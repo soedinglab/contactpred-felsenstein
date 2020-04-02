@@ -449,6 +449,11 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   recurse_tree(root, consts, buf);
   c_float_t buffer_AA_fx[AA_ab];
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("root p_ab", consts->p_ab, AA_ab);
+  print_array_dbg_loc("root Ln_ab", root->data->Ln_ab, AA_ab);
+  #endif
+
   c_float_t fx = 0;
   for(int a = 0; a < A_a; a++) {
     for(int b = 0; b < A_b; b++) {
@@ -550,7 +555,9 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
   for (int ab = 0; ab < AA_ab; ab++) {
     p_ab[ab] -= normalization;
   }
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("p_ab", p_ab, AA_ab);
+  #endif
 
   c_float_t pi_a[A_a];
   for (int a = 0; a < A_a; a++) {
@@ -590,8 +597,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("dv_p_ab", dv_p_ab, A_a_p_A_b*AA_ab);
   print_array_dbg_loc_int8("dv_p_ab_signs", consts->dv_p_ab_signs, A_a_p_A_b*AA_ab);
+  #endif
 
 
   c_float_t *dw_p_ab = consts->dw_p_ab;
@@ -609,8 +618,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       }
     }
   }
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("dw_p_ab", dw_p_ab, AA_ab*AA_ab);
   print_array_dbg_loc_int8("dw_p_ab_signs", consts->dw_p_ab_signs, AA_ab*AA_ab);
+  #endif
 
   // p(a,.|.,b)
   c_float_t *p_ij_cond = consts->p_ij_cond;
@@ -627,7 +638,9 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       p_ij_cond[a * A_b + b] -= norm;
     }
   }
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("p_ij_cond", p_ij_cond, AA_ab);
+  #endif
 
   c_float_t *dv_p_ij_cond = consts->dv_p_ij_cond;
   initialize_array(dv_p_ij_cond, log0, A_a_p_A_b*AA_ab);
@@ -643,8 +656,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("dv_p_ij_cond", dv_p_ij_cond, A_a_p_A_b*AA_ab);
   print_array_dbg_loc_int8("dv_p_ij_cond_signs", consts->dv_p_ij_cond_signs, A_a_p_A_b*AA_ab);
+  #endif
 
   c_float_t *dw_p_ij_cond = consts->dw_p_ij_cond;
   initialize_array(dw_p_ij_cond, log0,AA_ab*AA_ab);
@@ -661,8 +676,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("dw_p_ij_cond", dw_p_ij_cond, AA_ab*AA_ab);
   print_array_dbg_loc_int8("dw_p_ij_cond_signs", consts->dw_p_ij_cond_signs, AA_ab*AA_ab);
+  #endif
 
   // p(.,b|a,.)
   c_float_t *p_ji_cond = consts->p_ji_cond;
@@ -679,7 +696,9 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("p_ji_cond", p_ji_cond, AA_ab);
+  #endif
 
   c_float_t *dv_p_ji_cond = consts->dv_p_ji_cond;
   initialize_array(dv_p_ji_cond, log0, A_a_p_A_b*AA_ab);
@@ -694,8 +713,11 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       }
     }
   }
+
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("dv_p_ji_cond", dv_p_ji_cond, A_a_p_A_b*AA_ab);
   print_array_dbg_loc_int8("dv_p_ji_cond_signs", consts->dv_p_ji_cond_signs, A_a_p_A_b*AA_ab);
+  #endif
 
   c_float_t *dw_p_ji_cond = consts->dw_p_ji_cond;
   initialize_array(dw_p_ji_cond, log0, AA_ab*AA_ab);
@@ -712,6 +734,8 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
   print_array_dbg_loc("dw_p_ji_cond", dw_p_ji_cond, AA_ab*AA_ab);
   print_array_dbg_loc_int8("dw_p_ji_cond_signs", consts->dw_p_ji_cond_signs, AA_ab*AA_ab);
+  #endif
 }

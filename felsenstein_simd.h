@@ -1,16 +1,21 @@
-#ifndef FELSENSTEIN_FELSENSTEIN_H
+#ifndef FELSENSTEIN_FELSENSTEIN_LIN_H
 #define FELSENSTEIN_FELSENSTEIN_H
 
 #include <stdint.h>
 #include <math.h>
-#include "simd_functions.h"
 
-
+#ifdef SINGLE_PRECISION
+#include "simd_functions_ps.h"
+#define log0 -50.0f
 #define c_f0 0.0f
 #define c_f1 1.0f
+#else
+#include "simd_functions_pd.h"
 #define log0 -2000.0f
+#define c_f0 0.0
+#define c_f1 1.0
+#endif
 
-typedef float c_float_t;
 
 typedef struct SignedLogExp {
   c_float_t sign;
@@ -261,32 +266,4 @@ void deinitialize_logexpbuffer(LogExpBuffer*);
 
 c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
-
-// DEBUG stuff
-static inline void print_array_dbg(c_float_t* array, int N) {
-  printf("%s", "DBG: ");
-  for(int n = 0; n < N; n++) {
-    printf("%f ", array[n]);
-  }
-  printf("\n");
-}
-
-static inline void print_array_dbg_loc(char* string, c_float_t* array, int N) {
-  printf("%s (%s) ", "DBG:", string);
-  for(int n = 0; n < N; n++) {
-    printf("%f ", array[n]);
-  }
-  printf("\n");
-}
-
-static inline void error_if_has_nan(char* string, c_float_t* array, int N) {
-  for(int i = 0; i < N; i++) {
-    if (array[i] == INFINITY || array[i] == -INFINITY) {
-      printf("%s: INFINITY detected at position %d.\n", string, i);
-      exit(-2);
-    }
-  }
-}
-
-
-#endif //FELSENSTEIN_FELSENSTEIN_H
+#endif //FELSENSTEIN_FELSENSTEIN_LIN_H

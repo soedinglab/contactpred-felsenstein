@@ -9,17 +9,21 @@
 #include <immintrin.h>
 #include "simd.h"
 
+#define simd_padded(N)  (N + (VECSIZE_FLOAT-1))/VECSIZE_FLOAT*VECSIZE_FLOAT
+#define malloc_simd_farr(x)  malloc_simd_float(x)
+
+#ifndef C_FLOAT_T
+#define C_FLOAT_T
+typedef float c_float_t;
+#endif
 
 typedef struct LogExpBuffer {
-  float* max1;
-  float* max2;
-  float* tmp_dim3;
+  c_float_t* max1;
+  c_float_t* max2;
+  c_float_t* tmp_dim3;
 } LogExpBuffer;
 
-
-typedef float c_float_t;
-
-static inline simd_float simdf32_fpow2(simd_float X) {
+static inline simdf32 simdf32_fpow2(simdf32 X) {
 
   /////////////////////////////////////////////////////////////////////////////////////
   // SIMD 2^x for four floats
@@ -33,29 +37,29 @@ static inline simd_float simdf32_fpow2(simd_float X) {
   //   In summary: x = (-1)^s * 1.mmmmmmmmmmmmmmmmmmmmmm * 2^(eeeeeee-127)
   /////////////////////////////////////////////////////////////////////////////////////
 
-  simd_int* xPtr = (simd_int*) &X;    // store address of float as pointer to int
+  simdi32* xPtr = (simdi32*) &X;    // store address of float as pointer to int
 
-  const simd_float CONST32_05f       = simdf32_set(0.5f); // Initialize a vector (4x32) with 0.5f
+  const simdf32 CONST32_05f       = simdf32_set(0.5f); // Initialize a vector (4x32) with 0.5f
   // (3 << 22) --> Initialize a large integer vector (shift left)
-  const simd_int CONST32_3i          = simdi32_set(3);
-  const simd_int CONST32_3shift22    = simdi32_slli(CONST32_3i, 22);
-  const simd_float CONST32_1f        = simdf32_set(1.0f);
-  const simd_float CONST32_FLTMAXEXP = simdf32_set(FLT_MAX_EXP);
-  const simd_float CONST32_FLTMAX    = simdf32_set(FLT_MAX);
-  const simd_float CONST32_FLTMINEXP = simdf32_set(FLT_MIN_EXP);
+  const simdi32 CONST32_3i          = simdi32_set(3);
+  const simdi32 CONST32_3shift22    = simdi32_slli(CONST32_3i, 22);
+  const simdf32 CONST32_1f        = simdf32_set(1.0f);
+  const simdf32 CONST32_FLTMAXEXP = simdf32_set(FLT_MAX_EXP);
+  const simdf32 CONST32_FLTMAX    = simdf32_set(FLT_MAX);
+  const simdf32 CONST32_FLTMINEXP = simdf32_set(FLT_MIN_EXP);
   // fifth order
-  const simd_float CONST32_A = simdf32_set(0.00187682f);
-  const simd_float CONST32_B = simdf32_set(0.00898898f);
-  const simd_float CONST32_C = simdf32_set(0.0558282f);
-  const simd_float CONST32_D = simdf32_set(0.240153f);
-  const simd_float CONST32_E = simdf32_set(0.693153f);
+  const simdf32 CONST32_A = simdf32_set(0.00187682f);
+  const simdf32 CONST32_B = simdf32_set(0.00898898f);
+  const simdf32 CONST32_C = simdf32_set(0.0558282f);
+  const simdf32 CONST32_D = simdf32_set(0.240153f);
+  const simdf32 CONST32_E = simdf32_set(0.693153f);
 
-  simd_float tx;
-  simd_int lx;
-  simd_float dx;
-  simd_float result    = simdf32_set(0.0f);
-  simd_float maskedMax = simdf32_set(0.0f);
-  simd_float maskedMin = simdf32_set(0.0f);
+  simdf32 tx;
+  simdi32 lx;
+  simdf32 dx;
+  simdf32 result    = simdf32_set(0.0f);
+  simdf32 maskedMax = simdf32_set(0.0f);
+  simdf32 maskedMin = simdf32_set(0.0f);
 
   // Check wheter one of the values is bigger or smaller than FLT_MIN_EXP or FLT_MAX_EXP
   // The correct FLT_MAX_EXP value is written to the right place
@@ -65,7 +69,7 @@ static inline simd_float simdf32_fpow2(simd_float X) {
   // If a value is bigger than FLT_MAX_EXP --> replace the later result with FLTMAX
   maskedMax = simdf32_and(CONST32_FLTMAX, simdf32_gt(X, CONST32_FLTMAXEXP));
 
-  tx = simdf32_add((simd_float ) CONST32_3shift22, simdf32_sub(X, CONST32_05f)); // temporary value for truncation: x-0.5 is added to a large integer (3<<22),
+  tx = simdf32_add((simdf32 ) CONST32_3shift22, simdf32_sub(X, CONST32_05f)); // temporary value for truncation: x-0.5 is added to a large integer (3<<22),
   // 3<<22 = (1.1bin)*2^23 = (1.1bin)*2^(150-127),
   // which, in internal bits, is written 0x4b400000 (since 10010110bin = 150)
 
@@ -89,7 +93,7 @@ static inline simd_float simdf32_fpow2(simd_float X) {
   X = simdf32_mul(dx, X);
   X = simdf32_add(X, CONST32_1f); // add 1.0f
 
-  simd_int lxExp = simdi32_slli(lx, 23); // add integer power of 2 to exponent
+  simdi32 lxExp = simdi32_slli(lx, 23); // add integer power of 2 to exponent
 
   *xPtr = simdi32_add(*xPtr, lxExp); // add integer power of 2 to exponent
 
@@ -101,7 +105,7 @@ static inline simd_float simdf32_fpow2(simd_float X) {
   return result;
 }
 
-static inline simd_float simdf32_flog2(simd_float X) {
+static inline simdf32 simdf32_flog2(simdf32 X) {
 
   // Fast SIMD log2 for four floats
   // Calculate integer of log2 for four floats in parallel with SSE2
@@ -129,23 +133,23 @@ static inline simd_float simdf32_flog2(simd_float X) {
   // Order 5: log2(1+y) = ((((a*y+b)*y+c)*y+d)*y + 1-a-b-c-d)*y, a=0.0440047 b=-0.1903190 c=0.4123442 d=-0.7077702
   //  => max dev = +/- 2.1E-5, run time ~ 5.6ns?
 
-  const simd_int CONST32_0x7f = simdi32_set(0x7f);
-  const simd_int CONST32_0x7fffff = simdi32_set(0x7fffff);
-  const simd_int CONST32_0x3f800000 = simdi32_set(0x3f800000);
-  const simd_float  CONST32_1f = simdf32_set(1.0);
+  const simdi32 CONST32_0x7f = simdi32_set(0x7f);
+  const simdi32 CONST32_0x7fffff = simdi32_set(0x7fffff);
+  const simdi32 CONST32_0x3f800000 = simdi32_set(0x3f800000);
+  const simdf32  CONST32_1f = simdf32_set(1.0);
   // const float a=0.1564, b=-0.5773, c=1.0-a-b;  // third order
   const float a=0.0440047f, b=-0.1903190f, c=0.4123442f, d=-0.7077702f, e=1.0-a-b-c-d; // fifth order
-  const simd_float  CONST32_A = simdf32_set(a);
-  const simd_float  CONST32_B = simdf32_set(b);
-  const simd_float  CONST32_C = simdf32_set(c);
-  const simd_float  CONST32_D = simdf32_set(d);
-  const simd_float  CONST32_E = simdf32_set(e);
-  simd_int E; // exponents of X
-  simd_float R; //  result
-  E = simdi32_srli((simd_int) X, 23);    // shift right by 23 bits to obtain exponent+127
+  const simdf32  CONST32_A = simdf32_set(a);
+  const simdf32  CONST32_B = simdf32_set(b);
+  const simdf32  CONST32_C = simdf32_set(c);
+  const simdf32  CONST32_D = simdf32_set(d);
+  const simdf32  CONST32_E = simdf32_set(e);
+  simdi32 E; // exponents of X
+  simdf32 R; //  result
+  E = simdi32_srli((simdi32) X, 23);    // shift right by 23 bits to obtain exponent+127
   E = simdi32_sub(E, CONST32_0x7f);     // subtract 127 = 0x7f
-  X = (simd_float) simdi_and((simd_int) X, CONST32_0x7fffff);  // mask out exponent => mantisse
-  X = (simd_float) simdi_or ((simd_int) X, CONST32_0x3f800000); // set exponent to 127 (i.e., 0)
+  X = (simdf32) simdi_and((simdi32) X, CONST32_0x7fffff);  // mask out exponent => mantisse
+  X = (simdf32) simdi_or ((simdi32) X, CONST32_0x3f800000); // set exponent to 127 (i.e., 0)
   X = simdf32_sub(X, CONST32_1f);          // subtract one from mantisse
   R = simdf32_mul(X, CONST32_A);           // R = a*X
   R = simdf32_add(R, CONST32_B);           // R = a*X+b
@@ -160,130 +164,76 @@ static inline simd_float simdf32_flog2(simd_float X) {
   return R;
 }
 
-static inline simd_float simdf32_flog2_o9(simd_float X) {
-  // max deviation < 1.8E-7
-  const simd_int CONST32_0x7f = simdi32_set(0x7f);
-  const simd_int CONST32_0x7fffff = simdi32_set(0x7fffff);
-  const simd_int CONST32_0x3f800000 = simdi32_set(0x3f800000);
-  const simd_float  CONST32_1f = simdf32_set(1.0);
-  const float a=+0.00539809f;
-  const float b=-0.03314491f;
-  const float c=+0.09574013f;
-  const float d=-0.18045487f;
-  const float e=+0.26626530f;
-  const float f=-0.35534727f;
-  const float g=+0.48014241f;
-  const float h=-0.72129244f;
-  const float i=1-a-b-c-d-e-f-g-h;
-
-  const simd_float  CONST32_A = simdf32_set(a);
-  const simd_float  CONST32_B = simdf32_set(b);
-  const simd_float  CONST32_C = simdf32_set(c);
-  const simd_float  CONST32_D = simdf32_set(d);
-  const simd_float  CONST32_E = simdf32_set(e);
-  const simd_float  CONST32_F = simdf32_set(f);
-  const simd_float  CONST32_G = simdf32_set(g);
-  const simd_float  CONST32_H = simdf32_set(h);
-  const simd_float  CONST32_I = simdf32_set(i);
-
-  simd_int E; // exponents of X
-  simd_float R; //  result
-  E = simdi32_srli((simd_int) X, 23);    // shift right by 23 bits to obtain exponent+127
-  E = simdi32_sub(E, CONST32_0x7f);     // subtract 127 = 0x7f
-  X = (simd_float) simdi_and((simd_int) X, CONST32_0x7fffff);  // mask out exponent => mantisse
-  X = (simd_float) simdi_or ((simd_int) X, CONST32_0x3f800000); // set exponent to 127 (i.e., 0)
-  X = simdf32_sub(X, CONST32_1f);          // subtract one from mantisse
-  R = simdf32_mul(X, CONST32_A);           // R = a*X
-  R = simdf32_add(R, CONST32_B);           // R = a*X+b
-  R = simdf32_mul(R, X);                   // R = (a*X+b)*X
-  R = simdf32_add(R, CONST32_C);           // R = (a*X+b)*X+c
-  R = simdf32_mul(R, X);                   // R = ((a*X+b)*X+c)*X
-  R = simdf32_add(R, CONST32_D);           // R = ((a*X+b)*X+c)*X+d
-  R = simdf32_mul(R, X);                   // R = (((a*X+b)*X+c)*X+d)*X
-  R = simdf32_add(R, CONST32_E);           // R = (((a*X+b)*X+c)*X+d)*X+e
-  R = simdf32_mul(R, X);                   // R = ((((a*X+b)*X+c)*X+d)*X+e)*X
-  R = simdf32_add(R, CONST32_F);           // R = ((((a*X+b)*X+c)*X+d)*X+e)*X+f
-  R = simdf32_mul(R, X);                   // R = (((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X
-  R = simdf32_add(R, CONST32_G);           // R = (((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g
-  R = simdf32_mul(R, X);                   // R = ((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X
-  R = simdf32_add(R, CONST32_H);           // R = (((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)
-  R = simdf32_mul(R, X);                   // R = ((((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)*X)
-  R = simdf32_add(R, CONST32_I);           // R = ((((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)*X)+i
-  R = simdf32_mul(R, X);                   // R = (((((((((a*X+b)*X+c)*X+d)*X+e)*X+f)*X+g)*X+h)*X)+i)*X ~ log2(1+X) !!
-  R = simdf32_add(R, simdi32_i2f(E));  // convert integer exponent to float and add to mantisse
-  return R;
-}
-
 static inline void add_array(c_float_t* out, c_float_t* x, c_float_t* y, size_t N) {
   for (int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
-    simd_float y_chunk = simdf32_load(y + n);
+    simdf32 x_chunk = simdf32_load(x + n);
+    simdf32 y_chunk = simdf32_load(y + n);
     simdf32_store(out + n,  simdf32_add(x_chunk, y_chunk));
   }
 }
 
 static inline void add_constant(c_float_t* out, c_float_t* x, c_float_t constant, size_t N) {
-  simd_float const_chunk = simdf32_set(constant);
+  simdf32 const_chunk = simdf32_set(constant);
   for (int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
+    simdf32 x_chunk = simdf32_load(x + n);
     simdf32_store(out + n,  simdf32_add(x_chunk, const_chunk));
   }
 }
 
 static inline void sub_array(c_float_t* out, c_float_t* x, c_float_t* y, size_t N) {
   for (int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
-    simd_float y_chunk = simdf32_load(y + n);
+    simdf32 x_chunk = simdf32_load(x + n);
+    simdf32 y_chunk = simdf32_load(y + n);
     simdf32_store(out + n,  simdf32_sub(x_chunk, y_chunk));
   }
 }
 
 static inline void mul_array(c_float_t* out, c_float_t* x, c_float_t* y, size_t N) {
   for (int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
-    simd_float y_chunk = simdf32_load(y + n);
+    simdf32 x_chunk = simdf32_load(x + n);
+    simdf32 y_chunk = simdf32_load(y + n);
     simdf32_store(out + n,  simdf32_mul(x_chunk, y_chunk));
   }
 }
 
 static inline void pow2_array(c_float_t* out, c_float_t* x, size_t N) {
   for(int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
+    simdf32 x_chunk = simdf32_load(x + n);
     simdf32_store(out + n , simdf32_fpow2(x_chunk));
   }
 }
 
 static inline void log2_array(c_float_t* out, c_float_t* x, size_t N) {
   for(int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_simd = simdf32_load(x + n);
-    simdf32_store(out + n, simdf32_flog2_o9(x_simd));
+    simdf32 x_simd = simdf32_load(x + n);
+    simdf32_store(out + n, simdf32_flog2(x_simd));
   }
 }
 
 static inline void max_array(c_float_t* out, c_float_t* x, c_float_t* y, size_t N) {
   for(int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
-    simd_float y_chunk = simdf32_load(y + n);
+    simdf32 x_chunk = simdf32_load(x + n);
+    simdf32 y_chunk = simdf32_load(y + n);
     simdf32_store(out + n,  simdf32_max(x_chunk, y_chunk));
   }
 }
 
 static inline void sign_array(c_float_t* out, c_float_t* x, size_t N) {
 
-  simd_float ones = simdf32_set(1);
-  simd_float sign_mask = simdf32_set(-0.0);
+  simdf32 ones = simdf32_set(1);
+  simdf32 sign_mask = simdf32_set(-0.0);
 
   for(int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
-    simd_float signs = simdf32_and(x_chunk, sign_mask);
+    simdf32 x_chunk = simdf32_load(x + n);
+    simdf32 signs = simdf32_and(x_chunk, sign_mask);
     simdf32_store(out + n, simdf32_xor(ones, signs));
   }
 }
 
 static inline void abs_array(c_float_t* out, c_float_t* x, size_t N) {
-  simd_float mask = simdf32_set(-0.0);
+  simdf32 mask = simdf32_set(-0.0);
   for(int n = 0; n < N; n+=VECSIZE_FLOAT) {
-    simd_float x_chunk = simdf32_load(x + n);
+    simdf32 x_chunk = simdf32_load(x + n);
     simdf32_store(out + n,  simdf32_andnot(mask, x_chunk));
   }
 }
@@ -344,19 +294,19 @@ static inline void signedlogsumexp3_array(c_float_t* out, c_float_t* out_signs, 
 static inline void col_max_ax01(int dim1, int dim2, int dim3, float *max,
   float (*x)[dim2][dim3], float(*x_add)[dim2]) {
 
-  simd_float min_chunk = simdf32_set(-FLT_MAX);
+  simdf32 min_chunk = simdf32_set(-FLT_MAX);
   for(int cd = 0; cd < dim3; cd += VECSIZE_FLOAT) {
     simdf32_store(max + cd, min_chunk);
   }
 
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
-      simd_float const_chunk = simdf32_set(x_add[c_p][d_p]);
+      simdf32 const_chunk = simdf32_set(x_add[c_p][d_p]);
       for(int cd = 0; cd < dim3; cd+=VECSIZE_FLOAT) {
-        simd_float x_chunk = simdf32_load(&x[c_p][d_p][cd]);
-        simd_float chunk = simdf32_add(x_chunk, const_chunk);
-        simd_float max_chunk = simdf32_load(max + cd);
-        simd_float new_max = simdf32_max(chunk, max_chunk);
+        simdf32 x_chunk = simdf32_load(&x[c_p][d_p][cd]);
+        simdf32 chunk = simdf32_add(x_chunk, const_chunk);
+        simdf32 max_chunk = simdf32_load(max + cd);
+        simdf32 new_max = simdf32_max(chunk, max_chunk);
         simdf32_store(max + cd, new_max);
       }
     }
@@ -365,7 +315,7 @@ static inline void col_max_ax01(int dim1, int dim2, int dim3, float *max,
 
 static inline void col_max_ax0(int dim1, int dim2, int dim3, float (*max)[dim3],
   float (*x)[dim2][dim3], float (*x_add)[dim2]) {
-  simd_float min_chunk = simdf32_set(-FLT_MAX);
+  simdf32 min_chunk = simdf32_set(-FLT_MAX);
   for(int d_p = 0; d_p < dim2; d_p++) {
     for(int cd = 0; cd < dim3; cd += VECSIZE_FLOAT) {
       simdf32_store(&max[d_p][cd], min_chunk);
@@ -373,12 +323,12 @@ static inline void col_max_ax0(int dim1, int dim2, int dim3, float (*max)[dim3],
   }
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
-      simd_float const_chunk = simdf32_set(x_add[c_p][d_p]);
+      simdf32 const_chunk = simdf32_set(x_add[c_p][d_p]);
       for(int cd = 0; cd < dim3; cd+=VECSIZE_FLOAT) {
-        simd_float x_chunk = simdf32_load(&x[c_p][d_p][cd]);
-        simd_float chunk = simdf32_add(x_chunk, const_chunk);
-        simd_float max_chunk = simdf32_load(&max[d_p][cd]);
-        simd_float new_max = simdf32_max(chunk, max_chunk);
+        simdf32 x_chunk = simdf32_load(&x[c_p][d_p][cd]);
+        simdf32 chunk = simdf32_add(x_chunk, const_chunk);
+        simdf32 max_chunk = simdf32_load(&max[d_p][cd]);
+        simdf32 new_max = simdf32_max(chunk, max_chunk);
         simdf32_store(&max[d_p][cd], new_max);
       }
     }
@@ -387,7 +337,7 @@ static inline void col_max_ax0(int dim1, int dim2, int dim3, float (*max)[dim3],
 
 static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3],
   float (*x)[dim2][dim3], float (*x_add)[dim2]) {
-  simd_float min_chunk = simdf32_set(-FLT_MAX);
+  simdf32 min_chunk = simdf32_set(-FLT_MAX);
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int cd = 0; cd < dim3; cd += VECSIZE_FLOAT) {
       simdf32_store(&max[c_p][cd], min_chunk);
@@ -395,12 +345,12 @@ static inline void col_max_ax1(int dim1, int dim2, int dim3, float (*max)[dim3],
   }
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int d_p = 0; d_p < dim2; d_p++) {
-      simd_float const_chunk = simdf32_set(x_add[c_p][d_p]);
+      simdf32 const_chunk = simdf32_set(x_add[c_p][d_p]);
       for(int cd = 0; cd < dim3; cd+=VECSIZE_FLOAT) {
-        simd_float x_chunk = simdf32_load(&x[c_p][d_p][cd]);
-        simd_float chunk = simdf32_add(x_chunk, const_chunk);
-        simd_float max_chunk = simdf32_load(&max[c_p][cd]);
-        simd_float new_max = simdf32_max(chunk, max_chunk);
+        simdf32 x_chunk = simdf32_load(&x[c_p][d_p][cd]);
+        simdf32 chunk = simdf32_add(x_chunk, const_chunk);
+        simdf32 max_chunk = simdf32_load(&max[c_p][cd]);
+        simdf32 new_max = simdf32_max(chunk, max_chunk);
         simdf32_store(&max[c_p][cd], new_max);
       }
     }
@@ -412,7 +362,7 @@ static inline void logsumexp_matrix_ax01(int dim1, int dim2, int dim3, float* re
   float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
   LogExpBuffer* buf) {
 
-  simd_float zero_chunk = simdf32_set(0.0f);
+  simdf32 zero_chunk = simdf32_set(0.0f);
   for(int cd = 0; cd < dim3; cd+= VECSIZE_FLOAT) {
     simdf32_store(res + cd, zero_chunk);
   }
@@ -455,7 +405,7 @@ static inline void logsumexp_matrix_ax0(int dim1, int dim2, int dim3, float (*re
   float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
   LogExpBuffer* buffer) {
 
-  simd_float zero_chunk = simdf32_set(0.0f);
+  simdf32 zero_chunk = simdf32_set(0.0f);
   for(int d_p = 0; d_p < dim2; d_p++) {
     for(int cd = 0; cd < dim3; cd+= VECSIZE_FLOAT) {
       simdf32_store(&res[d_p][cd], zero_chunk);
@@ -502,7 +452,7 @@ static inline void logsumexp_matrix_ax1(int dim1, int dim2, int dim3, float (*re
   float (*x2)[dim2][dim3], float (*sign2)[dim2][dim3], float (*y2)[dim2],
   LogExpBuffer* buffer) {
 
-  simd_float zero_chunk = simdf32_set(0.0f);
+  simdf32 zero_chunk = simdf32_set(0.0f);
   for(int c_p = 0; c_p < dim1; c_p++) {
     for(int cd = 0; cd < dim3; cd+= VECSIZE_FLOAT) {
       simdf32_store(&res[c_p][cd], zero_chunk);

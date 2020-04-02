@@ -3,16 +3,16 @@ cimport numpy as np
 import numpy as np
 from libc.stdlib cimport malloc, free
 from scipy.optimize import fmin_l_bfgs_b
-ctypedef np.float64_t c_float_t
+ctypedef np.float32_t c_float_t
 from math import exp
 
-cdef extern from "felsenstein_logspace_faster.c":
+cdef extern from "felsenstein_logspace_faster_float.c":
     pass
 
 A = 20  # the alphabet is hard-coded to have 20 letters for now
 log0 = -1000  # for numerical reasons we assume that the logarithm of 0 is -1000
 
-cdef extern from "felsenstein_faster.h":
+cdef extern from "felsenstein_faster_float.h":
     
     ctypedef struct NodePrecomputation:
         pass
@@ -173,14 +173,14 @@ cdef class ExtraArguments:
         free(self.buffer.right)
 
 
-def felsenstein_fx_grad(double[:] x, ExtraArguments extra_args):
+def felsenstein_fx_grad(c_float_t[:] x, ExtraArguments extra_args):
     cdef Constants* consts = &extra_args.consts
     AA_ij = extra_args.consts.AA_ij
     A_i_p_A_j = extra_args.consts.A_i_p_A_j
     
     cdef Buffer* buffer = &extra_args.buffer
     cdef c_float_t lam = extra_args.lam
-    grad = np.empty(AA_ij + A_i_p_A_j)
+    grad = np.empty(AA_ij + A_i_p_A_j, dtype=np.float32)
     cdef c_float_t[:] grad_c = grad
     fx = -calculate_fx_grad(&x[0], &grad_c[0], consts, buffer)
     grad = -grad
@@ -197,55 +197,6 @@ def felsenstein_fx_grad(double[:] x, ExtraArguments extra_args):
     return fx + penalty, grad
 
 
-class OptimizationFailure(Exception):
-
- def __init__(self, info_object, last_x, v, w):
-    msg = 'Unexpected optimization problem.'
-    super().__init__(msg)
-    self._info = info_object
-    self._last_x = last_x
-    self._v_opt = v
-    self._w_opt = w
-
-    @property
-    def info(self):
-        return self._info
-
-    @property
-    def last_x(self):
-        return self._last_x
-
-    @property
-    def v_opt(self):
-        return self._v_opt
-
-    @property
-    def w_opt(self):
-        return self._w_opt
-
-
-def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, max_ls_steps=20, x0=None):
-    
-    extra_args = ExtraArguments(msa, i, j, lam_w, tree)
-    AA_ij = extra_args.consts.AA_ij
-    A_i_p_A_j = extra_args.consts.A_i_p_A_j
-    
-    N, L = msa.shape
-    if x0 is None:
-        x0 = np.zeros(A_i_p_A_j + AA_ij)
-    x_opt, fx_opt, info = fmin_l_bfgs_b(felsenstein_fx_grad, x0, args=(extra_args,), 
-                                        factr=factr, pgtol=pgtol, maxls=max_ls_steps)
-    info['fx_opt'] = fx_opt
-
-    x_opt_full = reduced2long_params(x_opt, msa, i, j)
-    v = x_opt_full[:2*A].reshape(2, A)
-    w = x_opt_full[2*A:].reshape(A, A)
-
-    if info['warnflag'] != 0:
-        raise OptimizationFailure(info, x_opt, v, w)
-
-    return v, w, info
-
 
 def get_parameter_length(msa, i, j):
     A_i = len(np.unique(msa[:,i]))
@@ -253,35 +204,6 @@ def get_parameter_length(msa, i, j):
     return A_i+A_j + A_i*A_j
 
 
-def evaluate_felsenstein(x0, msa, i, j, tree, lam_w, vw=True):
+def evaluate_felsenstein(x0, msa, i, j, tree, lam_w):
     extra_args = ExtraArguments(msa, i, j, lam_w, tree)
     return felsenstein_fx_grad(x0, extra_args)
-
-
-def reduced2long_params(x, msa, i, j):
-    counts_i = np.bincount(msa[:,i], minlength=A)
-    counts_j = np.bincount(msa[:,j], minlength=A)
-    backmapping_i, = np.where(counts_i != 0)
-    backmapping_j, = np.where(counts_j != 0)
-
-    A_i = len(backmapping_i)
-    A_j = len(backmapping_j)
-    
-    v = np.ones((2, A)) * log0
-    w = np.zeros((A, A))
-    
-    x_v = x[:A_i + A_j]
-    x_w = x[A_i + A_j:]
-    
-    for mapped_i, orig_i in enumerate(backmapping_i):
-        v[0, orig_i] = x_v[mapped_i]
-    for mapped_j, orig_j in enumerate(backmapping_j):
-        v[1, orig_j] = x_v[A_i + mapped_j]
-    
-    for mapped_i in range(A_i):
-        for mapped_j in range(A_j):
-            orig_i = backmapping_i[mapped_i]
-            orig_j = backmapping_j[mapped_j]
-            w[orig_i, orig_j] = x_w[mapped_i*A_j + mapped_j]
-            
-    return np.concatenate((v.ravel(), w.ravel()))

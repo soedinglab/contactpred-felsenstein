@@ -1,5 +1,5 @@
-#ifndef FELSENSTEIN_FELSENSTEIN_H
-#define FELSENSTEIN_FELSENSTEIN_H
+#ifndef FELSENSTEIN_FELSENSTEIN_LIN_H
+#define FELSENSTEIN_FELSENSTEIN_LIN_H
 
 #include <stdint.h>
 #include <math.h>
@@ -232,4 +232,4 @@ void deinitialize_buffer(NodeBuffer*);
 
 c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
-#endif //FELSENSTEIN_FELSENSTEIN_H
+#endif //FELSENSTEIN_FELSENSTEIN_LIN_H

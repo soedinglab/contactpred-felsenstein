@@ -1,4 +1,4 @@
-#include "felsenstein_lin.h"
+#include "felsenstein_float.h"
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>

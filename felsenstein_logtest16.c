@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include "felsenstein.h"
+#include "felsenstein_lin.h"
 
 int main() {
   int i = 0;

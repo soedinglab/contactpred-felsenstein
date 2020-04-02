@@ -63,7 +63,7 @@
 #define SIMD_DOUBLE
 #define ALIGN_DOUBLE        AVX512_ALIGN_DOUBLE
 #define VECSIZE_DOUBLE      AVX512_VECSIZE_DOUBLE
-typedef __m512d simd_double;
+typedef __m512d simdf64;
 #define simdf64_add(x,y)    _mm512_add_pd(x,y)
 #define simdf64_sub(x,y)    _mm512_sub_pd(x,y)
 #define simdf64_mul(x,y)    _mm512_mul_pd(x,y)
@@ -85,7 +85,7 @@ typedef __m512d simd_double;
 #define SIMD_FLOAT
 #define ALIGN_FLOAT         AVX512_ALIGN_FLOAT
 #define VECSIZE_FLOAT       AVX512_VECSIZE_FLOAT
-typedef __m512  simd_float;
+typedef __m512  simdf32;
 #define simdf32_add(x,y)    _mm512_add_ps(x,y)
 #define simdf32_sub(x,y)    _mm512_sub_ps(x,y)
 #define simdf32_mul(x,y)    _mm512_mul_ps(x,y)
@@ -112,7 +112,7 @@ typedef __m512  simd_float;
 #define SIMD_INT
 #define ALIGN_INT           AVX512_ALIGN_INT
 #define VECSIZE_INT         AVX512_VECSIZE_INT
-typedef __m512i simd_int;
+typedef __m512i simdi32;
 #define simdi32_add(x,y)    _mm512_add_epi32(x,y)
 #define simdi16_add(x,y)    _mm512_add_epi16(x,y)
 #define simdi16_adds(x,y)   _mm512_adds_epi16(x,y)
@@ -179,7 +179,7 @@ template  <unsigned int N> inline __m256i _mm256_shift_left(__m256i a)
 }
 #endif
 
-typedef __m256i simd_int;
+typedef __m256i simdi32;
 #define simdi32_add(x,y)    _mm256_add_epi32(x,y)
 #define simdi16_add(x,y)    _mm256_add_epi16(x,y)
 #define simdi16_adds(x,y)   _mm256_adds_epi16(x,y)
@@ -229,7 +229,21 @@ typedef __m256i simd_int;
 #define simdi32_srli(x,y)   _mm256_srli_epi32(x,y) // shift integers in a right by y
 #define simdi32_i2f(x) 	    _mm256_cvtepi32_ps(x)  // convert integer to s.p. float
 #define simdi_i2fcast(x)    _mm256_castsi256_ps(x)
+
+typedef __m256i simdi64;
+#define simdi64_set(x)        _mm256_set1_epi64x(x)
+#define simdi64_srli(x, y)    _mm256_srli_epi64(x, y)
+#define simdi64_slli(x, y)    _mm256_slli_epi64(x, y)
+#define simdi64_sub(x, y)     _mm256_sub_epi64(x, y)
+#define simdi64_and(x, y)     _mm256_and_si256(x, y)
+#define simdi64_add(x, y)     _mm256_add_epi64(x, y)
+#define simdi64_or(x, y)      _mm256_or_si256(x, y)
+// simdi64_f2i has only int precision! Doesn't matter for the use case here, but aware!
+#define simdi64_f2i(x)        _mm256_cvtepi32_epi64(_mm256_cvtpd_epi32(x))
+
 #endif //SIMD_INT
+
+
 #endif //AVX2
 
 #ifdef AVX
@@ -239,7 +253,7 @@ typedef __m256i simd_int;
 #define SIMD_DOUBLE
 #define ALIGN_DOUBLE        AVX_ALIGN_DOUBLE
 #define VECSIZE_DOUBLE      AVX_VECSIZE_DOUBLE
-typedef __m256d simd_double;
+typedef __m256d simdf64;
 #define simdf64_add(x,y)    _mm256_add_pd(x,y)
 #define simdf64_sub(x,y)    _mm256_sub_pd(x,y)
 #define simdf64_mul(x,y)    _mm256_mul_pd(x,y)
@@ -255,13 +269,20 @@ typedef __m256d simd_double;
 #define simdf64_and(x,y)    _mm256_and_pd(x,y)
 #define simdf64_andnot(x,y) _mm256_andnot_pd(x,y)
 #define simdf64_xor(x,y)    _mm256_xor_pd(x,y)
+#define simdf64_i2f(x)      _mm256_cvtepi32_pd(x)
+#define simdf64_floor(x)    _mm256_floor_pd(x)
+#define simdf64_cmp(x,y,z)  _mm256_cmp_pd(x, y, z)
+#define simdf64_blendv(x, y, z)    _mm256_blendv_pd(x, y, z)
+
+
 #endif //SIMD_DOUBLE
+
 // float support (usable with AVX1)
 #ifndef SIMD_FLOAT
 #define SIMD_FLOAT
 #define ALIGN_FLOAT         AVX_ALIGN_FLOAT
 #define VECSIZE_FLOAT       AVX_VECSIZE_FLOAT
-typedef __m256 simd_float;
+typedef __m256 simdf32;
 #define simdf32_add(x,y)    _mm256_add_ps(x,y)
 #define simdf32_sub(x,y)    _mm256_sub_ps(x,y)
 #define simdf32_mul(x,y)    _mm256_mul_ps(x,y)
@@ -296,7 +317,7 @@ static inline uint8_t simd_hmax8(const __m128i buffer);
 #define SIMD_DOUBLE
 #define ALIGN_DOUBLE        SSE_ALIGN_DOUBLE
 #define VECSIZE_DOUBLE      SSE_VECSIZE_DOUBLE
-typedef __m128d simd_double;
+typedef __m128d simdf64;
 #define simdf64_add(x,y)    _mm_add_pd(x,y)
 #define simdf64_sub(x,y)    _mm_sub_pd(x,y)
 #define simdf64_mul(x,y)    _mm_mul_pd(x,y)
@@ -312,6 +333,8 @@ typedef __m128d simd_double;
 #define simdf64_and(x,y)    _mm_and_pd(x,y)
 #define simdf64_andnot(x,y) _mm_andnot_pd(x,y)
 #define simdf64_xor(x,y)    _mm_xor_pd(x,y)
+
+
 #endif //SIMD_DOUBLE
 #endif
 
@@ -320,7 +343,7 @@ typedef __m128d simd_double;
 #define SIMD_FLOAT
 #define ALIGN_FLOAT         SSE_ALIGN_FLOAT
 #define VECSIZE_FLOAT       SSE_VECSIZE_FLOAT
-typedef __m128  simd_float;
+typedef __m128  simdf32;
 #define simdf32_add(x,y)    _mm_add_ps(x,y)
 #define simdf32_sub(x,y)    _mm_sub_ps(x,y)
 #define simdf32_mul(x,y)    _mm_mul_ps(x,y)
@@ -347,7 +370,7 @@ typedef __m128  simd_float;
 #define SIMD_INT
 #define ALIGN_INT           SSE_ALIGN_INT
 #define VECSIZE_INT         SSE_VECSIZE_INT
-typedef __m128i simd_int;
+typedef __m128i simdi32;
 #define simdi32_add(x,y)    _mm_add_epi32(x,y)
 #define simdi16_add(x,y)    _mm_add_epi16(x,y)
 #define simdi16_adds(x,y)   _mm_adds_epi16(x,y)
@@ -552,15 +575,38 @@ static inline float * malloc_simd_float(const size_t size)
 }
 #endif
 #ifdef SIMD_DOUBLE
-inline simd_double * malloc_simd_double(const size_t size)
+static inline double * malloc_simd_double(const size_t size)
 {
-    return (simd_double *) mem_align(ALIGN_DOUBLE,size);
+    return (double *) mem_align(ALIGN_DOUBLE, size);
 }
+
+
+static inline __m256d _mm256_cvtepi64_pd_emulated(const __m256i v)
+/* see: https://stackoverflow.com/a/41223013 */
+/* Optimized full range int64_t to double conversion           */
+/* Emulate _mm256_cvtepi64_pd()                                */
+{
+    __m256i magic_i_lo   = _mm256_set1_epi64x(0x4330000000000000);                /* 2^52               encoded as floating-point  */
+    __m256i magic_i_hi32 = _mm256_set1_epi64x(0x4530000080000000);                /* 2^84 + 2^63        encoded as floating-point  */
+    __m256i magic_i_all  = _mm256_set1_epi64x(0x4530000080100000);                /* 2^84 + 2^63 + 2^52 encoded as floating-point  */
+    __m256d magic_d_all  = _mm256_castsi256_pd(magic_i_all);
+
+    __m256i v_lo         = _mm256_blend_epi32(magic_i_lo, v, 0b01010101);         /* Blend the 32 lowest significant bits of v with magic_int_lo                                                   */
+    __m256i v_hi         = _mm256_srli_epi64(v, 32);                              /* Extract the 32 most significant bits of v                                                                     */
+            v_hi         = _mm256_xor_si256(v_hi, magic_i_hi32);                  /* Flip the msb of v_hi and blend with 0x45300000                                                                */
+    __m256d v_hi_dbl     = _mm256_sub_pd(_mm256_castsi256_pd(v_hi), magic_d_all); /* Compute in double precision:                                                                                  */
+    __m256d result       = _mm256_add_pd(v_hi_dbl, _mm256_castsi256_pd(v_lo));    /* (v_hi - magic_d_all) + v_lo  Do not assume associativity of floating point addition !!                        */
+    return result;                                                        /* With gcc use -O3, then -fno-associative-math is default. Do not use -Ofast, which enables -fassociative-math! */
+                                                                                  /* With icc use -fp-model precise                                                                                */
+}
+#define simdf64_cvtepi64(x)    _mm256_cvtepi64_pd_emulated(x)
+
+
 #endif
 #ifdef SIMD_INT
-inline simd_int * malloc_simd_int(const size_t size)
+inline simdi32 * malloc_simd_int(const size_t size)
 {
-    return (simd_int *) mem_align(ALIGN_INT,size);
+    return (simdi32 *) mem_align(ALIGN_INT, size);
 }
 #endif
 
@@ -653,3 +699,4 @@ inline float ScalarProd20(const float* qi, const float* tj) {
 }
 
 #endif //SIMD_H
+

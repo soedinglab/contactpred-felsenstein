@@ -5,6 +5,12 @@
 #include <string.h>
 #include "felsenstein_faster.h"
 
+#ifdef SINGLE_PRECISION
+#define EPSILON 1e-3
+#else
+#define EPSILON 1e-9
+#endif
+
 int main() {
   int i = 0;
   int j = 1;
@@ -87,7 +93,7 @@ int main() {
   #ifdef DEBUG
   exit(-2);
   #endif
-  c_float_t epsilon = 1e-9;
+  c_float_t epsilon = EPSILON;
   int pos = 0;
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     calculate_fx_grad(x, grad, consts, buffer);

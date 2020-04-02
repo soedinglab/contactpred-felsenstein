@@ -1,26 +1,27 @@
-#ifndef FELSENSTEIN_FELSENSTEIN_H
+#ifndef FELSENSTEIN_FELSENSTEIN_LIN_H
 #define FELSENSTEIN_FELSENSTEIN_H
 
 #include <stdint.h>
 #include <math.h>
 
-//#define DEBUG
 
-#ifdef DEBUG
+#ifdef DEBUG_PRINT
 #include <stdlib.h>
 #include <stdio.h>
 #endif
 
+#ifdef SINGLE_PRECISION
+#define c_f0 0.0f
+#define log0 -50.0f
+typedef float c_float_t;
+#else
 #define c_f0 0.0
-#define N_COL 2
-#define A 20
-#define AA 400
-#define AAA 8000
-#define AAAA 160000
 #define log0 -2000
-
-
 typedef double c_float_t;
+#endif
+
+#define N_COL 2
+
 
 typedef struct SignedLogExp {
   int8_t sign;
@@ -245,41 +246,30 @@ void deinitialize_buffer(NodeBuffer*);
 c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
 // DEBUG stuff
+#ifdef DEBUG_PRINT
 static inline void print_array_dbg(c_float_t* array, int N) {
   printf("%s", "DBG: ");
   for(int n = 0; n < N; n++) {
-    printf("%f ", array[n]);
+    printf("%.9g ", array[n]);
   }
   printf("\n");
 }
 
 static inline void print_array_dbg_loc(char* string, c_float_t* array, int N) {
-  #ifdef DEBUG
   printf("%s (%s) ", "DBG:", string);
   for(int n = 0; n < N; n++) {
-    printf("%f ", array[n]);
+    printf("%.9g ", array[n]);
   }
   printf("\n");
-  #endif
 }
 
 static inline void print_array_dbg_loc_int8(char* string, int8_t* array, int N) {
-  #ifdef DEBUG
   printf("%s (%s) ", "DBG:", string);
   for(int n = 0; n < N; n++) {
     printf("%i ", array[n]);
   }
   printf("\n");
-  #endif
 }
+#endif
 
-static inline void error_if_has_nan(char* string, c_float_t* array, int N) {
-  for(int i = 0; i < N; i++) {
-    if (array[i] == INFINITY || array[i] == -INFINITY) {
-      printf("%s: INFINITY detected at position %d.\n", string, i);
-      exit(-2);
-    }
-  }
-}
-
-#endif //FELSENSTEIN_FELSENSTEIN_H
+#endif //FELSENSTEIN_FELSENSTEIN_LIN_H

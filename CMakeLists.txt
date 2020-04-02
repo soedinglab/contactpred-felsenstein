@@ -8,6 +8,10 @@ include(FindASan)
 include(FindMSan)
 set(CMAKE_C_STANDARD 99)
 
+IF(DEBUG_PRINT)
+    ADD_DEFINITIONS(-DDEBUG_PRINT)
+ENDIF(DEBUG_PRINT)
+
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
     message("-- Compiler is clang(++)")
     set(CMAKE_COMPILER_IS_CLANG 1)
@@ -36,32 +40,49 @@ endif ()
 
 include_directories(lib)
 
-add_executable(simd_test simd_test.c simd_functions.h)
+add_executable(simd_test simd_test.c simd_functions_ps.h)
 set_target_properties(simd_test PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
 
 
-add_library(felsenstein felsenstein.c felsenstein.h)
-add_library(felsenstein_log felsenstein_logspace.c felsenstein.h)
+add_library(felsenstein felsenstein_lin.c felsenstein_lin.h)
+add_library(felsenstein_log felsenstein_logspace.c felsenstein_lin.h)
 
-add_executable(felsenstein_test felsenstein.h felsenstein.c felsenstein_test.c)
+add_executable(felsenstein_test felsenstein_lin.h felsenstein_lin.c felsenstein_test.c)
 target_link_libraries(felsenstein_test m)
 
-add_executable(felsenstein_log_test felsenstein.h felsenstein_logspace.c felsenstein_logtest.c)
+add_executable(felsenstein_log_test felsenstein_lin.h felsenstein_logspace.c felsenstein_logtest.c)
 target_link_libraries(felsenstein_log_test m)
 
-add_executable(felsenstein_test_faster felsenstein_logspace_faster.c felsenstein_logtest_faster.c)
-target_link_libraries(felsenstein_test_faster m)
+add_executable(felsenstein_log_test_float felsenstein_logspace_float.c)
+target_link_libraries(felsenstein_log_test m)
 
-add_executable(felsenstein_log_test16 felsenstein.h felsenstein_logspace.c felsenstein_logtest16.c)
+add_executable(felsenstein_log_test_float_log2 felsenstein_logspace_float_log2.c)
+target_link_libraries(felsenstein_log_test_float_log2 m)
+
+add_executable(felsenstein_faster_test_float felsenstein_faster.c felsenstein_logtest_faster.c)
+target_compile_definitions(felsenstein_faster_test_float PUBLIC SINGLE_PRECISION)
+target_link_libraries(felsenstein_faster_test_float m)
+
+add_executable(felsenstein_faster_test felsenstein_faster.c felsenstein_logtest_faster.c)
+target_compile_definitions(felsenstein_faster_test PUBLIC DOUBLE_PRECISION)
+target_link_libraries(felsenstein_faster_test m)
+
+add_executable(felsenstein_log_test16 felsenstein_lin.h felsenstein_logspace.c felsenstein_logtest16.c)
 target_link_libraries(felsenstein_log_test16 m)
 
-add_executable(felsenstein_test16 felsenstein.h felsenstein.c felsenstein_test16.c)
+add_executable(felsenstein_test16 felsenstein_lin.h felsenstein_lin.c felsenstein_test16.c)
 target_link_libraries(felsenstein_test16 m)
+
+add_executable(felsenstein_simd_test_float felsenstein_logspace_simd.c felsenstein_logtest_simd.c)
+set_target_properties(felsenstein_simd_test_float PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
+target_compile_definitions(felsenstein_simd_test_float PUBLIC SINGLE_PRECISION)
+target_link_libraries(felsenstein_simd_test_float m)
 
 add_executable(felsenstein_simd_test felsenstein_logspace_simd.c felsenstein_logtest_simd.c)
 set_target_properties(felsenstein_simd_test PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
+target_compile_definitions(felsenstein_simd_test PUBLIC DOUBLE_PRECISION)
 target_link_libraries(felsenstein_simd_test m)
 
-add_library(felsenstein_simd felsenstein_logspace_simd.c felsenstein_logtest_simd.c)
-set_target_properties(felsenstein_simd PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
-target_link_libraries(felsenstein_simd m)
+add_executable(test_sind_functions test_simd_functions_pd.c)
+set_target_properties(test_sind_functions PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} LINK_FLAGS ${SSE_FLAGS})
+target_link_libraries(test_sind_functions m)

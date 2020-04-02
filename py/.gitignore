@@ -1,10 +1,28 @@
+__pycache__
+
+optimize_felsenstein_float_log2.c
+optimize_felsenstein_float_log2.*.so
+optimize_felsenstein_float_log2.html
+
 optimize_felsenstein_faster.c
 optimize_felsenstein_faster.*.so
 optimize_felsenstein_faster.html
 
+optimize_felsenstein_faster_float.c
+optimize_felsenstein_faster_float.*.so
+optimize_felsenstein_faster_float.html
+
+py/optimize_felsenstein_float_log2.c
+py/optimize_felsenstein_float_log2.*.so
+py/optimize_felsenstein_float_log2.html
+
 optimize_felsenstein_simd.c
 optimize_felsenstein_simd.*.so
 optimize_felsenstein_simd.html
+
+optimize_felsenstein_float.c
+optimize_felsenstein_float.*.so
+optimize_felsenstein_float.html
 
 optimize_felsenstein.c
 optimize_felsenstein.*.so
