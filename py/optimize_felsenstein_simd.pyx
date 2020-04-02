@@ -3,13 +3,13 @@ import numpy as np
 from math import exp
 from libc.stdlib cimport malloc, free
 from scipy.optimize import fmin_l_bfgs_b
-ctypedef float c_float_t
+ctypedef double c_float_t
 
 
 A = 20  # the alphabet is hard-coded to have 20 letters for now
 log0 = -1000  # for numerical reasons we assume that the logarithm of 0 is -1000
 
-cdef extern from "felsenstein_logspace_simd.c":
+cdef extern from "felsenstein_simd.c":
     pass
 
 cdef extern from "felsenstein_simd.h":
@@ -152,30 +152,27 @@ cdef class ExtraArguments:
         deinitialize_buffer(&self.buffer)
 
 
-def felsenstein_fx_grad(double[:] x, ExtraArguments extra_args):
+def felsenstein_fx_grad(c_float_t[:] x, ExtraArguments extra_args):
     cdef Constants* consts = &extra_args.consts
     cdef int AA_ij = extra_args.consts.AA_ij
     cdef int A_i_p_A_j = extra_args.consts.A_i_p_A_j
 
-    x_np = np.asarray(x, dtype=np.float64)
-    cdef c_float_t[:] x_float = x_np.astype(np.float32)
-
     cdef Buffer* buffer = &extra_args.buffer
     cdef c_float_t lam = extra_args.lam
-    grad = np.empty(AA_ij + A_i_p_A_j, dtype=np.float32)
+    grad = np.empty(AA_ij + A_i_p_A_j)
     cdef c_float_t[:] grad_c = grad
-    fx = -calculate_fx_grad(&x_float[0], &grad_c[0], consts, buffer)
+    fx = -calculate_fx_grad(&x[0], &grad_c[0], consts, buffer)
     grad = -grad
     cdef c_float_t penalty = 0
     cdef c_float_t w
 
     cdef int i
     for i in range(AA_ij):
-        w = x_float[A_i_p_A_j + i]
+        w = x[A_i_p_A_j + i]
         penalty += 0.5 * lam * (w*w)
         grad[A_i_p_A_j + i] += lam * w
     
-    return fx + penalty, grad.astype(np.float, casting='safe')
+    return fx + penalty, grad
 
 
 class OptimizationFailure(Exception):
