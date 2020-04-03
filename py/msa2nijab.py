@@ -16,7 +16,7 @@ A = 20
 
 
 def create_parser():
-    parser = argparse.ArgumentParser('msa2wijab')
+    parser = argparse.ArgumentParser('msa2ijab')
     parser.add_argument('msa_psicov')
     parser.add_argument('n_ijab_out')
     parser.add_argument('--estimate-nj-tree', action='store_true')
@@ -33,6 +33,7 @@ def create_parser():
     parser.add_argument('--v_ijab_out')
     parser.add_argument('--v_ijab_prime_out')
     parser.add_argument('--fs-impl', choices=['SIMD', 'RED_ALPH'], default='SIMD')
+    parser.add_argument('--x-init', choices=['INIT_V', 'INIT_ZERO'], default='INIT_ZERO')
     return parser
 
 
@@ -47,8 +48,7 @@ def pool_initializer(fs_impl):
     OptimizationFailure = fs.OptimizationFailure
 
 
-def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries):
-    x0 = None
+def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, x0):
     n_fun_eval = 0
     grad_norm = np.inf
     best_v = None
@@ -77,11 +77,11 @@ def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries
     info['n_tries'] = max_tries - n_tries
     return best_v, best_w, info
 
-def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries):
+def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, x0):
 
     lambda_w_half = lambda_w/2
-    v, w, info_vw = optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries)
-    v_p, w_p, info_vw_p = optimize_vw(msa, i, j, tree, lambda_w_half, factr, pgtol, max_ls_steps, max_tries)
+    v, w, info_vw = optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, x0)
+    v_p, w_p, info_vw_p = optimize_vw(msa, i, j, tree, lambda_w_half, factr, pgtol, max_ls_steps, max_tries, x0)
 
     try:
         N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
@@ -155,7 +155,7 @@ def main():
         with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
             for i in range(0, L):
                 for j in range(i+1, L):
-                    job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, args.lbfgs_maxls, n_tries))
+                    job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, args.lbfgs_maxls, n_tries, args.x_init))
                     jobs.append(((i, j), job))
 
             for num, ((i, j), job) in enumerate(jobs):

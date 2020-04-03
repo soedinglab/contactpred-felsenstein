@@ -152,6 +152,20 @@ cdef class ExtraArguments:
         deinitialize_buffer(&self.buffer)
 
 
+def initialize_v_ml_w_zero(msa, i, j):
+    N, L = msa.shape
+    epsilon = 1e-15
+    counts_i = np.bincount(msa[:, i],minlength=20)
+    counts_j = np.bincount(msa[:, j],minlength=20)
+    backmapping_i, = np.where(counts_i != 0)
+    backmapping_j, = np.where(counts_j != 0)
+    v_i = np.log(counts_i[backmapping_i]/N)
+    v_j = np.log(counts_j[backmapping_j]/N)
+    A_i = len(backmapping_i)
+    A_j = len(backmapping_j)
+    return np.concatenate((v_i, v_j, np.zeros(A_i*A_j)))
+
+
 def felsenstein_fx_grad(c_float_t[:] x, ExtraArguments extra_args):
     cdef Constants* consts = &extra_args.consts
     cdef int AA_ij = extra_args.consts.AA_ij
@@ -202,15 +216,18 @@ class OptimizationFailure(Exception):
         return self._w_opt
 
 
-def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, max_ls_steps=20, x0=None):
+def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, max_ls_steps=20, x0='INIT_V'):
 
     extra_args = ExtraArguments(msa, i, j, lam_w, tree)
     AA_ij = extra_args.consts.AA_ij
     A_i_p_A_j = extra_args.consts.A_i_p_A_j
+
+    if x0 == 'INIT_V':
+        x0 = initialize_v_ml_w_zero(msa, i, j)
+    elif x0 == 'INIT_ZERO':
+        x0 = np.zeros(A_i_p_A_j + AA_ij)
     
     N, L = msa.shape
-    if x0 is None:
-        x0 = np.zeros(A_i_p_A_j + AA_ij)
     x_opt, fx_opt, info = fmin_l_bfgs_b(felsenstein_fx_grad, x0, args=(extra_args,), 
                                         factr=factr, pgtol=pgtol, maxls=max_ls_steps)
     info['fx_opt'] = fx_opt
