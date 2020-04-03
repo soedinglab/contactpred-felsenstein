@@ -137,6 +137,7 @@ void deinitialize_nodebuffer(NodeBuffer* buffer) {
 
 void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Constants* consts, Buffer* buffer){
 
+  int base_idx;
   int A_i = consts->A_i;
   int A_j = consts->A_j;
   int AA_ij = consts->AA_ij;
@@ -205,8 +206,19 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
   }
   node_buffer->Ln = logsumexpn(log_buffer_AA, AA_ij);
 
+  #ifndef DEBUG_NOSIMD
+  logsumexp_matrix_ax01(A_i, A_j, A_i_p_A_j_padded,
+                        node_buffer->dv_Ln, node_buffer->dv_Ln_signs,
+                        dv_Ln_ab, dv_Ln_ab_signs, p_ab,
+                        dv_p_ab, dv_p_ab_signs, Ln_ab,
+                        buffer->dv_logexp_buffer);
 
-
+  logsumexp_matrix_ax01(A_i, A_j, AA_ij_padded,
+                        node_buffer->dw_Ln, node_buffer->dw_Ln_signs,
+                        dw_Ln_ab, dw_Ln_ab_signs, p_ab,
+                        dw_p_ab, dw_p_ab_signs, Ln_ab,
+                        buffer->dw_logexp_buffer);
+  #else
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     for(int c_p = 0; c_p < A_i; c_p++) {
       for(int d_p = 0; d_p < A_j; d_p++) {
@@ -221,19 +233,6 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
     node_buffer->dv_Ln[lc] = logsumexp_result.result;
     node_buffer->dv_Ln_signs[lc] = logsumexp_result.sign;
   }
-   /*
-  logsumexp_matrix_ax01(A_i, A_j, A_i_p_A_j_padded,
-                        node_buffer->dv_Ln, node_buffer->dv_Ln_signs,
-                        dv_Ln_ab, dv_Ln_ab_signs, p_ab,
-                        dv_p_ab, dv_p_ab_signs, Ln_ab,
-                        buffer->dv_logexp_buffer);
-
-  logsumexp_matrix_ax01(A_i, A_j, AA_ij_padded,
-                        node_buffer->dw_Ln, node_buffer->dw_Ln_signs,
-                        dw_Ln_ab, dw_Ln_ab_signs, p_ab,
-                        dw_p_ab, dw_p_ab_signs, Ln_ab,
-                        buffer->dw_logexp_buffer);
-   */
 
   for(int cd = 0; cd < AA_ij; cd++) {
     for(int c_p = 0; c_p < A_i; c_p++) {
@@ -249,6 +248,7 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
     node_buffer->dw_Ln[cd] = logsumexp_result.result;
     node_buffer->dw_Ln_signs[cd] = logsumexp_result.sign;
   }
+  #endif
 
 
   // p(Xm|a, .)
@@ -259,8 +259,21 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
     node_buffer->Ln_ia[a] = logsumexpn(log_buffer_A_j, A_j);
   }
 
-  int base_idx;
+  #ifndef DEBUG_NOSIMD
+  logsumexp_matrix_ax1(A_i, A_j, A_i_p_A_j_padded,
+    dv_Ln_ia, dv_Ln_ia_signs,
+    dv_Ln_ab, dv_Ln_ab_signs, p_ji_cond,
+    dv_p_ji_cond, dv_p_ji_cond_signs, Ln_ab,
+    buffer->dv_logexp_buffer
+  );
 
+  logsumexp_matrix_ax1(A_i, A_j, AA_ij_padded,
+    dw_Ln_ia, dw_Ln_ia_signs,
+    dw_Ln_ab, dw_Ln_ab_signs, p_ji_cond,
+    dw_p_ji_cond, dw_p_ji_cond_signs, Ln_ab,
+    buffer->dw_logexp_buffer
+  );
+  #else
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     for (int a = 0; a < A_i; a++) {
       base_idx = 0;
@@ -280,22 +293,6 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
     }
   }
 
-  /*
-  logsumexp_matrix_ax1(A_i, A_j, A_i_p_A_j_padded,
-    dv_Ln_ia, dv_Ln_ia_signs,
-    dv_Ln_ab, dv_Ln_ab_signs, p_ji_cond,
-    dv_p_ji_cond, dv_p_ji_cond_signs, Ln_ab,
-    buffer->dv_logexp_buffer
-  );
-
-  logsumexp_matrix_ax1(A_i, A_j, AA_ij_padded,
-    dw_Ln_ia, dw_Ln_ia_signs,
-    dw_Ln_ab, dw_Ln_ab_signs, p_ji_cond,
-    dw_p_ji_cond, dw_p_ji_cond_signs, Ln_ab,
-    buffer->dw_logexp_buffer
-  );
-  */
-
   for(int cd = 0; cd < AA_ij; cd++) {
     for (int a = 0; a < A_i; a++) {
       for (int d_p = 0; d_p < A_j; d_p++) {
@@ -310,6 +307,7 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
       dw_Ln_ia_signs[a][cd] = logsumexp_result.sign;
     }
   }
+  #endif
 
 
   // d/dp p(Xm|.,b)
@@ -320,7 +318,21 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
     node_buffer->Ln_jb[b] = logsumexpn(log_buffer_A_i, A_i);
   }
 
+  #ifndef DEBUG_NOSIMD
+  logsumexp_matrix_ax0(A_i, A_j, A_i_p_A_j_padded,
+                       dv_Ln_jb, dv_Ln_jb_signs,
+                       dv_Ln_ab, dv_Ln_ab_signs, p_ij_cond,
+                       dv_p_ij_cond, dv_p_ij_cond_signs, Ln_ab,
+                       buffer->dv_logexp_buffer
+  );
 
+  logsumexp_matrix_ax0(A_i, A_j, AA_ij_padded,
+                       dw_Ln_jb, dw_Ln_jb_signs,
+                       dw_Ln_ab, dw_Ln_ab_signs, p_ij_cond,
+                       dw_p_ij_cond, dw_p_ij_cond_signs, Ln_ab,
+                       buffer->dw_logexp_buffer
+  );
+  #else
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     for (int b = 0; b < A_j; b++) {
       base_idx = 0;
@@ -340,23 +352,6 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
     }
   }
 
-  /*
-  logsumexp_matrix_ax0(A_i, A_j, A_i_p_A_j_padded,
-                       dv_Ln_jb, dv_Ln_jb_signs,
-                       dv_Ln_ab, dv_Ln_ab_signs, p_ij_cond,
-                       dv_p_ij_cond, dv_p_ij_cond_signs, Ln_ab,
-                       buffer->dv_logexp_buffer
-  );
-
-  logsumexp_matrix_ax0(A_i, A_j, AA_ij_padded,
-                       dw_Ln_jb, dw_Ln_jb_signs,
-                       dw_Ln_ab, dw_Ln_ab_signs, p_ij_cond,
-                       dw_p_ij_cond, dw_p_ij_cond_signs, Ln_ab,
-                       buffer->dw_logexp_buffer
-  );
-   */
-
-
   for(int cd = 0; cd < AA_ij; cd++) {
     for (int b = 0; b < A_j; b++) {
       for (int c_p = 0; c_p < A_i; c_p++) {
@@ -371,8 +366,7 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
       dw_Ln_jb_signs[b][cd] = logsumexp_result.sign;
     }
   }
-
-
+  #endif
 }
 
 void initialize_node(Node* node, Constants* consts) {
@@ -408,10 +402,7 @@ void deinitialize_node(Node* node) {
 
 void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, c_float_t* dv_L_ab_signs, c_float_t* dw_L_ab, c_float_t* dw_L_ab_signs, int a, int b){
 
-  int A_i = consts->A_i;
   int A_j = consts->A_j;
-  int AA_ij = consts->AA_ij;
-  int A_i_p_A_j = consts->A_i_p_A_j;
   int A_i_p_A_j_padded = consts->A_i_p_A_j_padded;
   int AA_ij_padded = consts->AA_ij_padded;
 
@@ -436,7 +427,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
   c_float_t (*dv_Ln_ab)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) child_data->dv_Ln_ab;
   c_float_t (*dv_Ln_ab_signs)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) child_data->dv_Ln_ab_signs;
 
-  /*
+  #ifndef DEBUG_NOSIMD
   add_constant(buffer->dv_mut2_buffer,  child_buffer->dv_Ln, 2*log_1mr, A_i_p_A_j_padded);
   signedlogsumexp2_array(buffer->dv_mut1_buffer, buffer->dv_mut1_sign_buffer,
                          dv_Ln_ia[a], dv_Ln_ia_signs[a],
@@ -451,9 +442,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
                          buffer->dv_mut0_buffer, dv_Ln_ab_signs[a][b],
                          A_i_p_A_j_padded
   );
-   */
-
-
+  #else
   for(int lc = 0; lc < A_i_p_A_j; lc++) {
     c_float_t ddv_mut2 = 2*log_1mr + child_buffer->dv_Ln[lc];
     c_float_t ddv_mut2_sign = child_buffer->dv_Ln_signs[lc];
@@ -473,6 +462,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
     dv_L_ab[lc] = mut_logsumexp.result;
     dv_L_ab_signs[lc] = mut_logsumexp.sign;
   }
+  #endif
 
 
   c_float_t (*dw_Ln_ia)[AA_ij_padded] = (c_float_t (*)[AA_ij_padded]) child_buffer->dw_Ln_ia;
@@ -482,7 +472,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
   c_float_t (*dw_Ln_ab)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) child_data->dw_Ln_ab;
   c_float_t (*dw_Ln_ab_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) child_data->dw_Ln_ab_signs;
 
-  /*
+  #ifndef DEBUG_NOSIMD
   add_constant(buffer->dw_mut2_buffer,  child_buffer->dw_Ln, 2*log_1mr, AA_ij_padded);
   signedlogsumexp2_array(buffer->dw_mut1_buffer, buffer->dw_mut1_sign_buffer,
     dw_Ln_ia[a], dw_Ln_ia_signs[a],
@@ -497,8 +487,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
     buffer->dw_mut0_buffer, dw_Ln_ab_signs[a][b],
     AA_ij_padded
   );
-   */
-
+  #else
   for (int cd = 0; cd < AA_ij; cd++) {
 
     c_float_t ddw_mut2 = 2*log_1mr + child_buffer->dw_Ln[cd];
@@ -519,6 +508,7 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
     dw_L_ab[cd] = mut_logsumexp.result;
     dw_L_ab_signs[cd] = mut_logsumexp.sign;
   }
+  #endif
 
 }
 

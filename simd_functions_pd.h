@@ -32,7 +32,7 @@ static inline simdf64 simdf64_pow2(simdf64 x) {
    */
 
   const simdf64 c_1d = simdf64_set(1);
-  const simdi64 c_1023l = simdf64_set(1023); // 1023 is the offset of the exponent in double representation
+  const simdf64 c_1023 = simdf64_set(1023); // 1023 is the offset of the exponent in double representation
   const simdi64 c_mantissa_mask = simdi64_set(0xfffffffffffff); // the 52 bits of the double mantissa set to 1
 
   // 6th order polynomial coefficients
@@ -65,7 +65,7 @@ static inline simdf64 simdf64_pow2(simdf64 x) {
 
   // assemble the double number by putting together mantissa and exponent
   simdi64 mantissa_long = simdi64_and((simdi64) mant, c_mantissa_mask); // zero out everything but the mantissa digits
-  simdi64 exp_i64 = simdi64_f2i(simdf64_add(y1, c_1023l)); // double exponent is stored with an offset of 1023
+  simdi64 exp_i64 = simdi64_f2i(simdf64_add(y1, c_1023)); // double exponent is stored with an offset of 1023
   simdi64 shifted_exp = simdi64_slli(exp_i64, 52); // double mantissa has 52 bits
   x = (simdf64) simdi64_or(mantissa_long, shifted_exp); // join mantisse and exponent and obtain the final result 2^x
 
@@ -106,7 +106,6 @@ static inline simdf64 simdf64_log2(simdf64 x) {
   const simdf64 poly_i = simdf64_set(1.4426935677917467);
 
 
-  const simdi64 c_min_norm_pos = simdi64_set(0x0010000000000000);
   const simdi64 c_1023 = simdi64_set(0x3ff);
   const simdi64 c_mantissa_mask = simdi64_set(0xfffffffffffff);
   const simdi64 c_exp_1023 = simdi64_set(0x3ff0000000000000);
@@ -114,9 +113,7 @@ static inline simdf64 simdf64_log2(simdf64 x) {
   simdf64 const_1d = simdf64_set(1);
 
   simdf64 R;
-  simdf64 e;
-
-  x = simdf64_max(x, c_min_norm_pos);  /* cut off denormalized stuff */
+  simdi64 e;
 
   // can be done with AVX2
   e = simdi64_srli((simdi64) x, 52);

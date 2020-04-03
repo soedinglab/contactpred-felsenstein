@@ -20,6 +20,10 @@ optimize_felsenstein_simd.c
 optimize_felsenstein_simd.*.so
 optimize_felsenstein_simd.html
 
+optimize_felsenstein_simd_float.c
+optimize_felsenstein_simd_float.*.so
+optimize_felsenstein_simd_float.html
+
 optimize_felsenstein_float.c
 optimize_felsenstein_float.*.so
 optimize_felsenstein_float.html
