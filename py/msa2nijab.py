@@ -16,7 +16,7 @@ A = 20
 
 
 def create_parser():
-    parser = argparse.ArgumentParser('msa2ijab')
+    parser = argparse.ArgumentParser('msa2nijab')
     parser.add_argument('msa_psicov')
     parser.add_argument('n_ijab_out')
     parser.add_argument('--estimate-nj-tree', action='store_true')
@@ -33,7 +33,7 @@ def create_parser():
     parser.add_argument('--v_ijab_out')
     parser.add_argument('--v_ijab_prime_out')
     parser.add_argument('--fs-impl', choices=['SIMD', 'RED_ALPH'], default='SIMD')
-    parser.add_argument('--x-init', choices=['INIT_V', 'INIT_ZERO'], default='INIT_ZERO')
+    parser.add_argument('--x-init', choices=['INIT_V', 'INIT_ZERO'], default='INIT_V')
     return parser
 
 

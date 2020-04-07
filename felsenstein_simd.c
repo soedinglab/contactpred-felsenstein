@@ -137,7 +137,6 @@ void deinitialize_nodebuffer(NodeBuffer* buffer) {
 
 void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Constants* consts, Buffer* buffer){
 
-  int base_idx;
   int A_i = consts->A_i;
   int A_j = consts->A_j;
   int AA_ij = consts->AA_ij;
@@ -185,18 +184,20 @@ void precompute_buffer(NodeBuffer* node_buffer, NodePrecomputation* data, Consta
   // Nulling out buffer
   node_buffer->Ln = 0;
 
+  c_float_t log_buffer_AA[AA_ij];
   c_float_t log_buffer_A_j[A_j];
   c_float_t log_buffer_A_i[A_i];
 
+
+  #ifdef DEBUG_NOSIMD
+  int base_idx;
   c_float_t log_buffer_2A_i[2 * A_i];
   c_float_t sign_buffer_2A_i[2 * A_i];
   c_float_t log_buffer_2A_j[2 * A_j];
   c_float_t sign_buffer_2A_j[2 * A_j];
-
-  c_float_t log_buffer_AA[AA_ij];
   c_float_t log_buffer_2AA[2 * AA_ij];
   c_float_t sign_buffer_2AA[2 * AA_ij];
-
+  #endif
 
   // d/dp p(Xm)
   for(int a = 0; a < A_i; a++) {
@@ -517,8 +518,6 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buffer) {
   int A_i = consts->A_i;
   int A_j = consts->A_j;
   int AA_ij_padded = consts->AA_ij_padded;
-  int AA_ij = consts->AA_ij;
-  int A_i_p_A_j = consts->A_i_p_A_j;
   int A_i_p_A_j_padded = consts->A_i_p_A_j_padded;
 
   if (node->left == NULL && node->right == NULL) {

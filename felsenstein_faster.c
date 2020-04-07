@@ -5,8 +5,7 @@
 
 
 void initialize_leaf(Node* leaf, Constants* consts) {
-
-  int A_a = consts->A_i;
+  
   int A_b = consts->A_j;
   int AA_ab = consts->AA_ij;
   int A_a_p_A_b = consts->A_i_p_A_j;
@@ -269,6 +268,12 @@ void initialize_node(Node* node, Constants* consts) {
   data->dw_Ln_ab = (c_float_t*) malloc(sizeof(c_float_t)*AA_ab*AA_ab);
   data->dw_Ln_ab_signs = (int8_t*) malloc(sizeof(int8_t)*AA_ab*AA_ab);
   node->data = data;
+
+  node->log_1mp_left = log2(1 - node->phi_left);
+  node->log_p_left = log2(node->phi_left);
+
+  node->log_1mp_right = log2(1 - node->phi_right);
+  node->log_p_right = log2(node->phi_right);
 }
 
 void deinitialize_node(Node* node) {
@@ -281,7 +286,7 @@ void deinitialize_node(Node* node) {
   free(node->data);
 }
 
-void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, int8_t* dv_L_ab_signs, c_float_t* dw_L_ab, int8_t* dw_L_ab_signs, int a, int b){
+void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, int8_t* dv_L_ab_signs, c_float_t* dw_L_ab, int8_t* dw_L_ab_signs, int a, int b){
 
   int A_a = consts->A_i;
   int A_b = consts->A_j;
@@ -291,8 +296,6 @@ void compute_Ln_branch(Node* node, c_float_t phi, NodeBuffer* buffer, Constants*
   NodePrecomputation *child_data = node->data;
   NodeBuffer* child_buffer = buffer;
 
-  c_float_t log_r = log2(phi);
-  c_float_t log_1mr = log2(1 - phi);
   c_float_t mut2 = 2*log_1mr + child_buffer->Ln;
   c_float_t mut1 = log_r + log_1mr + logsumexp2(child_buffer->Ln_ia[a], child_buffer->Ln_jb[b]);
   c_float_t mut0 = 2*log_r + child_data->Ln_ab[a*A_b + b];
@@ -387,15 +390,14 @@ void recurse_tree(Node* node, Constants* consts, Buffer* buf) {
       if (node->left != NULL) {
         memset(dv_left_Lab, c_f0, A_a_p_A_b * sizeof(c_float_t));
         memset(dw_left_Lab, c_f0, AA_ab * sizeof(c_float_t));
-        compute_Ln_branch(node->left, node->phi_left, buf->left, consts, &left_Lab, dv_left_Lab, dv_left_Lab_signs,
+        compute_Ln_branch(node->left, node->log_p_left, node->log_1mp_left, buf->left, consts, &left_Lab, dv_left_Lab, dv_left_Lab_signs,
                           dw_left_Lab, dw_left_Lab_signs, a, b);
       }
       if (node->right != NULL) {
         memset(dv_right_Lab, c_f0, A_a_p_A_b * sizeof(c_float_t));
         memset(dw_right_Lab, c_f0, AA_ab * sizeof(c_float_t));
-        compute_Ln_branch(node->right, node->phi_right, buf->right, consts, &right_Lab, dv_right_Lab,
-                          dv_right_Lab_signs, dw_right_Lab, dw_right_Lab_signs, a,
-                          b);
+        compute_Ln_branch(node->right, node->log_p_right, node->log_1mp_right, buf->right, consts, &right_Lab, dv_right_Lab,
+                          dv_right_Lab_signs, dw_right_Lab, dw_right_Lab_signs, a, b);
       }
 
       c_float_t Ln_ab = left_Lab + right_Lab;

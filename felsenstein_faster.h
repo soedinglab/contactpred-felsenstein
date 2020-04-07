@@ -1,5 +1,5 @@
-#ifndef FELSENSTEIN_FELSENSTEIN_LIN_H
-#define FELSENSTEIN_FELSENSTEIN_H
+#ifndef FELSENSTEIN_FASTER_H
+#define FELSENSTEIN_FASTER_H
 
 #include <stdint.h>
 #include <math.h>
@@ -151,8 +151,15 @@ typedef struct Node {
   struct Node* right;
 
   int seq_id;
+
   c_float_t phi_left;
+  c_float_t log_1mp_left;
+  c_float_t log_p_left;
+
   c_float_t phi_right;
+  c_float_t log_1mp_right;
+  c_float_t log_p_right;
+
 
   NodePrecomputation* data;
 
