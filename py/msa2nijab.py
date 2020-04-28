@@ -76,7 +76,7 @@ def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries
     info['total_fun_calls'] = n_fun_eval
     info['grad_norm'] = grad_norm
     info['n_tries'] = max_tries - n_tries
-    info['n_params'] = len(x0)
+    info['n_params'] = len(opt_info['grad'])
     return best_v, best_w, info
 
 
