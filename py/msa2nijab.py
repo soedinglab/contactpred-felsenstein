@@ -27,7 +27,8 @@ def create_parser():
     parser.add_argument('--lbfgs-maxls', type=int, default=20)
     parser.add_argument('--n-threads', type=int, default=1)
     parser.add_argument('--n-tries', type=int, default=3)
-    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--debug', action='store_true', help='deprecated and removed')
+    parser.add_argument('--skip-n-calc', action='store_true')
     parser.add_argument('--w_ijab_out')
     parser.add_argument('--w_ijab_prime_out')
     parser.add_argument('--v_ijab_out')
@@ -75,20 +76,33 @@ def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries
     info['total_fun_calls'] = n_fun_eval
     info['grad_norm'] = grad_norm
     info['n_tries'] = max_tries - n_tries
+    info['n_params'] = len(x0)
     return best_v, best_w, info
 
-def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, x0):
 
-    lambda_w_half = lambda_w/2
+def nan_like(arr):
+    nan_arr = np.empty(arr.shape)
+    nan_arr.fill(np.nan)
+
+
+def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, skip_n_calc, x0):
+
     v, w, info_vw = optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, x0)
-    v_p, w_p, info_vw_p = optimize_vw(msa, i, j, tree, lambda_w_half, factr, pgtol, max_ls_steps, max_tries, x0)
 
-    try:
-        N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
-        n_ijab = calculate_nijab(v, w, lambda_w, N_ij)
-    except OverflowError:
-        n_ijab = np.empty(w.shape)
-        n_ijab[:, :] = np.nan
+    if not skip_n_calc:
+        lambda_w_half = lambda_w/2
+        v_p, w_p, info_vw_p = optimize_vw(msa, i, j, tree, lambda_w_half, factr, pgtol, max_ls_steps, max_tries, x0)
+
+        try:
+            N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
+            n_ijab = calculate_nijab(v, w, lambda_w, N_ij)
+        except OverflowError:
+            n_ijab = nan_like(w)
+    else:
+        v_p = nan_like(v)
+        w_p = nan_like(w)
+        n_ijab = nan_like(w)
+        info_vw_p = None
 
     return n_ijab, v, w, v_p, w_p, info_vw, info_vw_p
 
@@ -150,52 +164,53 @@ def main():
     w_prime = np.zeros((L, L, A, A))
     n_full = np.zeros((L, L, A, A))
 
-    if not args.debug:
-        jobs = []
-        with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
-            for i in range(0, L):
-                for j in range(i+1, L):
-                    job = pool.apply_async(n_ijab_job, args=(msa, i, j, tree, lambda_w, factr, pgtol, args.lbfgs_maxls, n_tries, args.x_init))
-                    jobs.append(((i, j), job))
+    jobs = []
+    with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
+        for i in range(0, L):
+            for j in range(i+1, L):
+                job = pool.apply_async(
+                    n_ijab_job,
+                    args=(
+                        msa, i, j, tree, lambda_w, factr, pgtol,
+                        args.lbfgs_maxls, n_tries, args.skip_n_calc, args.x_init
+                        )
+                    )
+                jobs.append(((i, j), job))
 
-            for num, ((i, j), job) in enumerate(jobs):
-                n, v, w, v_p, w_p, info1, info2 = job.get()
-                v_full[i, j] = v
-                v_prime[i, j] = v_p
-                w_full[i, j] = w
-                w_prime[i, j] = w_p
-                n_full[i, j] = n
-                finish_time = datetime.today().strftime("%Y/%m/%d|%H:%M:%S")
-                n_eval1 = info1['total_fun_calls']
+        for num, ((i, j), job) in enumerate(jobs):
+            n, v, w, v_p, w_p, info1, info2 = job.get()
+            v_full[i, j] = v
+            v_prime[i, j] = v_p
+            w_full[i, j] = w
+            w_prime[i, j] = w_p
+            n_full[i, j] = n
+            finish_time = datetime.today().strftime("%Y/%m/%d|%H:%M:%S")
+
+            n_params = info1['n_params']
+            n_eval1 = info1['total_fun_calls']
+            grad_norm1 = info1['grad_norm']
+            n_tries1 = info1['n_tries']
+
+            if not args.skip_n_calc:
                 n_eval2 = info2['total_fun_calls']
-                grad_norm1 = info1['grad_norm']
                 grad_norm2 = info2['grad_norm']
-                n_tries1 = info1['n_tries']
                 n_tries2 = info2['n_tries']
+
                 print(
                     f'{finish_time} finished {num+1}/{len(jobs)} ',
                     f'[fun_evals: {n_eval1}|{n_eval2},',
                     f' grad_norms: {grad_norm1:.2e}|{grad_norm2:.2e},',
-                    f' n_tries: {n_tries1}|{n_tries2}]',
+                    f' n_tries: {n_tries1}|{n_tries2}, n_params: {n_params}]',
                     sep='', flush=True
                 )
-    else:
-
-        pool_initializer(args.fs_impl)
-
-        for i in range(0, L):
-            for j in range(i+1, L):
-                n, v, w, v_p, w_p, info1, info2 = n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, n_tries, args.debug)
-                for info in (info1, info2):
-                    for key, value in info.items():
-                        print(f'{key:20s}|', value)
-                v_full[i, j] = v
-                v_prime[i, j] = v_p
-                w_full[i, j] = w
-                w_prime[i, j] = w_p
-                n_full[i, j] = n
-                print(f'finished contact i={i}/j={j}', flush=True)
-
+            else:
+                 print(
+                    f'{finish_time} finished {num+1}/{len(jobs)} ',
+                    f'[fun_evals: {n_eval1},',
+                    f' grad_norms: {grad_norm1:.2e},',
+                    f' n_tries: {n_tries1}, n_params: {n_params}]',
+                    sep='', flush=True
+                 )
 
     L, L, A, A = n_full.shape
     for i in range(L):
