@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 from ccmpred.io import read_msa_psicov
 from ccmpred.counts import pair_counts
+A = 20
 
 
 def create_parser():
@@ -16,7 +17,7 @@ def main():
     args = parser.parse_args()
     msa = read_msa_psicov(args.msa)
     N, L = msa.shape
-    n = pair_counts(msa)
+    n = pair_counts(msa)[:, :, :A, :A]
     diag_ind = np.diag_indices(L)
     n[diag_ind] = np.nan
 
