@@ -1,14 +1,17 @@
 import argparse
 import copy
 import math
+import sys
 from multiprocessing import Pool
 from datetime import datetime
 
 import numpy as np
-np.random.seed(42)
 import ccmpred
 from Bio.Phylo.TreeConstruction import DistanceTreeConstructor, DistanceMatrix
+from Bio import Phylo
 import pam_distance
+
+np.random.seed(42)
 
 
 # hard coded alphabet size
@@ -19,7 +22,9 @@ def create_parser():
     parser = argparse.ArgumentParser('msa2nijab')
     parser.add_argument('msa_psicov')
     parser.add_argument('n_ijab_out')
-    parser.add_argument('--estimate-nj-tree', action='store_true')
+    parser.add_argument('--mode', choices=['NJ_TREE', 'BIN_TREE', 'NEWICK_TREE'],
+                        default='BIN_TREE')
+    parser.add_argument('--newick-file')
     parser.add_argument('--lambda_w', type=float, default=10)
     parser.add_argument('--branch-length', type=float, default=0.1)
     parser.add_argument('--lbfgs-pgtol', type=float, default=1e-5)
@@ -83,6 +88,7 @@ def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries
 def nan_like(arr):
     nan_arr = np.empty(arr.shape)
     nan_arr.fill(np.nan)
+    return nan_arr
 
 
 def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, skip_n_calc, x0):
@@ -153,10 +159,15 @@ def main():
     factr = args.lbfgs_factr
     n_tries = args.n_tries
 
-    if args.estimate_nj_tree:
+    if args.mode == 'NJ_TREE':
         tree = estimate_nj_tree(msa)
-    else:
+    elif args.mode == 'BIN_TREE':
         tree = create_binary_tree(N, args.branch_length)
+    elif args.mode == 'NEWICK_TREE':
+        if not args.newick_file:
+            print('Expected argument --newick-file, but no tree specified.', file=sys.stderr)
+            sys.exit(1)
+        tree = read_newick_tree(args.newick_file)
 
     v_full = np.zeros((L, L, 2, A))
     v_prime = np.zeros((L, L, 2, A))
@@ -419,6 +430,12 @@ def estimate_nj_tree(msa):
     tree = tc.nj(dm)
     tree.root_at_midpoint()
 
+    return biopython_phylo_to_tree(tree)
+
+
+def read_newick_tree(newick_tree_file):
+    with open(newick_tree_file) as newick_handle:
+        tree = next(Phylo.NewickIO.parse(newick_handle))
     return biopython_phylo_to_tree(tree)
 
 
