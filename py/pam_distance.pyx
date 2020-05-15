@@ -26,7 +26,7 @@ def calc_t_change(np.uint8_t[:] seq_x, np.uint8_t[:] seq_y, int L, double t, dou
                 Z += exp(v[i, j])
             p_i = exp_v / Z
             term1 = p_i + r * (1 - p_i)
-            term2 = p_i + r*r *( 1 - p_i)
+            term2 = p_i + r*r * (1 - p_i)
             
             num_term += 1 / term1
             denom_term += term2 / (term1*term1)
