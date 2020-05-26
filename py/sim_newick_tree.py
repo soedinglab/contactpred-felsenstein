@@ -223,7 +223,7 @@ def main():
 
     edge_length_distr = norm(mu, sd)
     edge_lengths = edge_length_distr.rvs(min(2*args.N_leaves, int(1e6)))
-    edge_lengths = np.maximum(edge_lengths, 0)
+    edge_lengths = np.maximum(edge_lengths, 1e-9)
 
     edge_gen = (el for el in edge_lengths)
     bin_tree = create_binary_tree(args.N_leaves, edge_gen)
