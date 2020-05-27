@@ -49,7 +49,7 @@ def estimate_nj_tree(msa):
     tree.root.name = 'root'
 
     for clade in tree.find_clades():
-        clade.branch_length += 1e-5
+        clade.branch_length = max(clade.branch_length, 1e-5)
 
     return tree
 
