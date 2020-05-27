@@ -28,16 +28,15 @@ def main():
 
 def estimate_nj_tree(msa):
 
-    single_counts = ccmpred.counts.single_counts(msa)[:, :A] + 1e-9
-    single_counts /= single_counts.sum(axis=1)[:, None]
-    v = np.log(single_counts)
+    single_counts = ccmpred.counts.single_counts(msa)[:, :A]
+    p_ia = single_counts / single_counts.sum(axis=1)[:, None]
 
     N, _ = msa.shape
     dist_list = []
     for i in range(N):
         row_distances = []
         for j in range(0, i):
-            row_distances.append(pam_distance.optimize_t(msa[i], msa[j], v))
+            row_distances.append(pam_distance.optimize_t(msa[i], msa[j], p_ia))
         row_distances.append(0)  # distance of i to itself
         dist_list.append(row_distances)
 

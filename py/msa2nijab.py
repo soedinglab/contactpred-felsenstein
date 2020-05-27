@@ -160,7 +160,9 @@ def main():
     n_tries = args.n_tries
 
     if args.mode == 'NJ_TREE':
-        tree = estimate_nj_tree(msa)
+        print('mode "NJ_TREE" not available anymore. '
+              'Pass tree via "NEWICK_TREE" mode instead.', file=sys.stderr)
+        sys.exit(1)
     elif args.mode == 'BIN_TREE':
         tree = create_binary_tree(N, args.branch_length)
     elif args.mode == 'NEWICK_TREE':
@@ -406,31 +408,6 @@ def create_binary_tree(n_leaves, branchlength):
     root, = last_layer
     root.parent = root
     return prune_tree(root)
-
-
-def estimate_nj_tree(msa):
-
-    single_counts = ccmpred.counts.single_counts(msa)[:,:A] + 1e-9
-    single_counts /= single_counts.sum(axis=1)[:, None]
-    v = np.log(single_counts)
-
-    N, L = msa.shape
-    dist_list = []
-    for i in range(N):
-        row_distances = []
-        for j in range(0, i):
-            row_distances.append(pam_distance.optimize_t(msa[i], msa[j], v))
-        row_distances.append(0)  # distance of i to itself
-        dist_list.append(row_distances)
-
-    leaf_names = [str(i) for i in range(N)]
-
-    tc = DistanceTreeConstructor()
-    dm = DistanceMatrix(leaf_names, dist_list)
-    tree = tc.nj(dm)
-    tree.root_at_midpoint()
-
-    return biopython_phylo_to_tree(tree)
 
 
 def read_newick_tree(newick_tree_file):

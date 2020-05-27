@@ -19,8 +19,7 @@ def main():
 
     msa = ccmpred.io.read_msa_psicov(args.msa_psicov)
     single_counts = ccmpred.counts.single_counts(msa)[:, :A] + 1e-9
-    single_counts /= single_counts.sum(axis=1)[:, None]
-    v = np.log(single_counts)
+    p_ia = single_counts / single_counts.sum(axis=1)[:, None]
 
     N, L = msa.shape
     dist_matrix = np.empty((N, N))
@@ -28,8 +27,7 @@ def main():
 
     for i in range(N):
         for j in range(0, i):
-            dist_matrix[i, j] = pam_distance.optimize_t(msa[i], msa[j], v)
-
+            dist_matrix[i, j] = pam_distance.optimize_t(msa[i], msa[j], p_ia)
     np.save(args.dist_matrix, dist_matrix)
 
 
