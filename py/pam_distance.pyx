@@ -42,7 +42,7 @@ def optimize_t(seq1, seq2, p_ia, prec=1e-6, tau=1, alpha=0.9, max_iter=100):
     
     # treat gap as missing data
     gap_mask = (seq1 == GAP_STATE) | (seq2 == GAP_STATE)
-    seq_pos = np.where(~gap_mask)
+    seq_pos, = np.where(~gap_mask)
     seq1 = seq1[seq_pos]
     seq2 = seq2[seq_pos]
 
@@ -52,10 +52,11 @@ def optimize_t(seq1, seq2, p_ia, prec=1e-6, tau=1, alpha=0.9, max_iter=100):
         return 0
     
     t_old = 1e-5
+    p_ia_subset = p_ia[seq_pos, :]
 
     n_iter = 0
     while n_iter < max_iter:
-        t_new = t_old - alpha * calc_t_change(seq1, seq2, L, t_old, tau, p_ia)
+        t_new = t_old - alpha * calc_t_change(seq1, seq2, L, t_old, tau, p_ia_subset)
         if abs(t_new - t_old) < prec:
             break
         t_old = t_new
