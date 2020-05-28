@@ -4,7 +4,8 @@ import math
 import numpy as np
 cimport numpy as np
 
-cdef A = 20
+cdef int A = 20
+cdef int GAP_STATE = A
 
 @cython.cdivision(True)
 @cython.boundscheck(False)
@@ -38,6 +39,13 @@ class NonConvergenceException(RuntimeError):
 
 
 def optimize_t(seq1, seq2, p_ia, prec=1e-6, tau=1, alpha=0.9, max_iter=100):
+    
+    # treat gap as missing data
+    gap_mask = (seq1 == GAP_STATE) | (seq2 == GAP_STATE)
+    seq_pos = np.where(~gap_mask)
+    seq1 = seq1[seq_pos]
+    seq2 = seq2[seq_pos]
+
     L = len(seq1)
 
     if np.sum(seq1 != seq2) == 0:
