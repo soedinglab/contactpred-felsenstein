@@ -1,5 +1,4 @@
 import argparse
-import copy
 import math
 import sys
 from multiprocessing import Pool
@@ -7,15 +6,15 @@ from datetime import datetime
 
 import numpy as np
 import ccmpred
-from Bio.Phylo.TreeConstruction import DistanceTreeConstructor, DistanceMatrix
-from Bio import Phylo
-import pam_distance
+
+from tree_utils import create_binary_tree, read_newick_tree, create_seq_node_map, prune_tree
 
 np.random.seed(42)
 
 
 # hard coded alphabet size
 A = 20
+GAP_STATE = A
 
 
 def create_parser():
@@ -91,14 +90,24 @@ def nan_like(arr):
     return nan_arr
 
 
-def n_ijab_job(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, skip_n_calc, x0):
+def n_ijab_job(msa, i, j, tree, n_seqs, lambda_w, factr, pgtol, max_ls_steps, max_tries, skip_n_calc, x0):
+
+    if n_seqs < 3:
+        dummy_info = {}
+        dummy_info['n_params'] = 0
+        dummy_info['total_fun_calls'] = 0
+        dummy_info['grad_norm'] = np.nan
+        dummy_info['n_tries'] = 0
+        dummy_info['n_seqs'] = n_seqs
+
+        return None, None, None, None, None, dummy_info, dummy_info
 
     v, w, info_vw = optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries, x0)
-
+    info_vw['n_seqs'] = n_seqs
     if not skip_n_calc:
         lambda_w_half = lambda_w/2
         v_p, w_p, info_vw_p = optimize_vw(msa, i, j, tree, lambda_w_half, factr, pgtol, max_ls_steps, max_tries, x0)
-
+        info_vw_p['n_seqs'] = n_seqs
         try:
             N_ij = calculate_nij(v, v_p, w, w_p, lambda_w, lambda_w_half)
             n_ijab = calculate_nijab(v, w, lambda_w, N_ij)
@@ -177,14 +186,24 @@ def main():
     w_prime = np.zeros((L, L, A, A))
     n_full = np.zeros((L, L, A, A))
 
+    seq_node_map = create_seq_node_map(tree)
+
     jobs = []
     with Pool(args.n_threads, initializer=pool_initializer(args.fs_impl)) as pool:
         for i in range(0, L):
             for j in range(i+1, L):
+
+                gap_mask = (msa[:, i] == GAP_STATE) | (msa[:, j] == GAP_STATE)
+                for k in range(N):
+                    seq_node_map[k].deleted = gap_mask[k]
+                pair_tree = prune_tree(tree)
+
+                n_seqs = np.sum(~gap_mask)
+
                 job = pool.apply_async(
                     n_ijab_job,
                     args=(
-                        msa, i, j, tree, lambda_w, factr, pgtol,
+                        msa, i, j, pair_tree, n_seqs, lambda_w, factr, pgtol,
                         args.lbfgs_maxls, n_tries, args.skip_n_calc, args.x_init
                         )
                     )
@@ -200,6 +219,7 @@ def main():
             finish_time = datetime.today().strftime("%Y/%m/%d|%H:%M:%S")
 
             n_params = info1['n_params']
+            n_seqs = info1['n_seqs']
             n_eval1 = info1['total_fun_calls']
             grad_norm1 = info1['grad_norm']
             n_tries1 = info1['n_tries']
@@ -213,7 +233,7 @@ def main():
                     f'{finish_time} finished {num+1}/{len(jobs)} ',
                     f'[fun_evals: {n_eval1}|{n_eval2},',
                     f' grad_norms: {grad_norm1:.2e}|{grad_norm2:.2e},',
-                    f' n_tries: {n_tries1}|{n_tries2}, n_params: {n_params}]',
+                    f' n_tries: {n_tries1}|{n_tries2}, n_params: {n_params}, n_seqs: {n_seqs}]',
                     sep='', flush=True
                 )
             else:
@@ -221,7 +241,7 @@ def main():
                     f'{finish_time} finished {num+1}/{len(jobs)} ',
                     f'[fun_evals: {n_eval1},',
                     f' grad_norms: {grad_norm1:.2e},',
-                    f' n_tries: {n_tries1}, n_params: {n_params}]',
+                    f' n_tries: {n_tries1}, n_params: {n_params}, n_seqs: {n_seqs}]',
                     sep='', flush=True
                  )
 
@@ -241,215 +261,6 @@ def main():
         np.save(args.w_ijab_out, w_full)
     if args.w_ijab_prime_out:
         np.save(args.w_ijab_prime_out, w_prime)
-
-
-class Node:
-    def __init__(self):
-        self._parent = None
-        self._left_child = None
-        self._right_child = None
-        self._deleted = False
-        self._left_branchlength = None
-        self._right_branchlength = None
-
-    @property
-    def parent(self):
-        return self._parent
-
-    @parent.setter
-    def parent(self, parent):
-        self._parent = parent
-
-    @property
-    def has_left_child(self):
-        left_child = self._left_child
-        if left_child is None:
-            return False
-        else:
-            return False if left_child._deleted else True
-
-    @property
-    def left_child(self):
-        left_child = self._left_child
-        if left_child is None:
-            return None
-        else:
-            return None if left_child._deleted else left_child
-
-    @left_child.setter
-    def left_child(self, left_child):
-        self._left_child = left_child
-
-    @property
-    def has_right_child(self):
-        right_child = self.right_child
-        if right_child is None:
-            return False
-        else:
-            return False if right_child._deleted else True
-
-    @property
-    def right_child(self):
-        right_child = self._right_child
-        if right_child is None:
-            return None
-        else:
-            return None if right_child._deleted else right_child
-
-    @right_child.setter
-    def right_child(self, right_child):
-        self._right_child = right_child
-
-    @property
-    def deleted(self):
-        return self._deleted
-
-    @deleted.setter
-    def deleted(self, deleted):
-        self._deleted = deleted
-
-    @property
-    def is_leaf(self):
-        return self._left_child is None and self._right_child is None
-
-    @property
-    def left_branchlength(self):
-        return self._left_branchlength
-
-    @left_branchlength.setter
-    def left_branchlength(self, left_branchlength):
-        self._left_branchlength = left_branchlength
-
-    @property
-    def right_branchlength(self):
-        return self._right_branchlength
-
-    @right_branchlength.setter
-    def right_branchlength(self, right_branchlength):
-        self._right_branchlength = right_branchlength
-
-
-def prune_tree_helper(node):
-
-    has_left_child = node.left_child is not None
-    has_right_child = node.right_child is not None
-
-    if has_left_child:
-        prune_tree_helper(node.left_child)
-    if has_right_child:
-        prune_tree_helper(node.right_child)
-
-    has_left_child = node.left_child is not None
-    has_right_child = node.right_child is not None
-
-    parent = node.parent
-
-    if has_left_child ^ has_right_child:
-        if has_left_child:
-            child = node.left_child
-            branch_length = node.left_branch_length
-        else:
-            child = node.right_child
-            branch_length = node.right_branch_length
-
-        if parent.left_child == node:
-            parent.left_child = child
-            parent.left_branch_length = parent.left_branch_length + branch_length
-        else:
-            parent.right_child = child
-            parent.right_branch_length = parent.right_branch_length + branch_length
-        child.parent = node.parent
-
-    if not node.is_leaf and not (has_left_child or has_right_child):
-        node.deleted = True
-
-
-def prune_tree(node):
-    node = copy.deepcopy(node)
-    prune_tree_helper(node)
-
-    if node.left_child is None:
-        root = node.right_child
-    elif node.right_child is None:
-        root = node.left_child
-    else:
-        root = node
-    return root
-
-
-def create_binary_tree(n_leaves, branchlength):
-    last_layer = []
-    depth = math.ceil(math.log2(n_leaves)) + 1
-    for i in range(2**(depth - 1)):
-        leaf = Node()
-        leaf.seq_id = i
-        if i >= n_leaves:
-            leaf.deleted = True
-        last_layer.append(leaf)
-
-    for layer in range(depth - 2, -1, -1):
-        new_layer = []
-        for i in range(2**layer):
-            node = Node()
-
-            left_child = last_layer[2*i]
-            node.left_child = left_child
-            left_child.parent = node
-            node.left_branchlength = branchlength
-
-            right_child = last_layer[2*i + 1]
-            right_child.parent = node
-            node.right_child = right_child
-            node.right_branchlength = branchlength
-
-            new_layer.append(node)
-        last_layer = new_layer
-
-    root, = last_layer
-    root.parent = root
-    return prune_tree(root)
-
-
-def read_newick_tree(newick_tree_file):
-    with open(newick_tree_file) as newick_handle:
-        tree = next(Phylo.NewickIO.parse(newick_handle))
-    return biopython_phylo_to_tree(tree)
-
-
-def biopython_phylo_to_tree(phylo_tree):
-    root = Node()
-    root.parent = root
-    tree_queue = [root]
-    phylo_queue = [phylo_tree.clade]
-
-    while len(phylo_queue) > 0:
-        phylo_node = phylo_queue.pop(0)
-        tree_node = tree_queue.pop(0)
-
-        if len(phylo_node.clades) == 0:
-            # this is a leaf
-            tree_node.seq_id = int(phylo_node.name)
-            continue
-
-        left_clade, right_clade = phylo_node.clades
-
-        left_child = Node()
-        left_child.parent = tree_node
-        tree_node.left_child = left_child
-        tree_node.left_branchlength = max(left_clade.branch_length, 0)
-
-        right_child = Node()
-        right_child.parent = tree_node
-        tree_node.right_child = right_child
-        tree_node.right_branchlength = max(right_clade.branch_length, 0)
-
-        tree_queue.append(left_child)
-        tree_queue.append(right_child)
-
-        phylo_queue.append(left_clade)
-        phylo_queue.append(right_clade)
-
-    return root
 
 
 if __name__ == '__main__':

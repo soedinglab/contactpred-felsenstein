@@ -97,8 +97,9 @@ cdef class ExtraArguments:
         # we build a new msa with a reduced alphabet containing only the letters that are present
         # in the individual columns i and j.
         # e.g. a column containing [0, 3, 18] is mapped to an alphabet [0, 1, 2] with alphabet size 3.
-        counts_i = np.bincount(msa[:,i], minlength=A)
-        counts_j = np.bincount(msa[:,j], minlength=A)
+        # gaps are not remapped, so [0, 3, 20] is mapped to [0, 3, 20]
+        counts_i = np.bincount(msa[:,i], minlength=A)[:A]
+        counts_j = np.bincount(msa[:,j], minlength=A)[:A]
         backmapping_i, = np.where(counts_i != 0)
         backmapping_j, = np.where(counts_j != 0)
         
@@ -153,14 +154,15 @@ cdef class ExtraArguments:
 
 
 def initialize_v_ml_w_zero(msa, i, j):
-    N, L = msa.shape
     epsilon = 1e-15
-    counts_i = np.bincount(msa[:, i],minlength=20)
-    counts_j = np.bincount(msa[:, j],minlength=20)
+    counts_i = np.bincount(msa[:, i], minlength=20)[:A]
+    N_i = np.sum(counts_i)
+    counts_j = np.bincount(msa[:, j], minlength=20)[:A]
+    N_j = np.sum(counts_j)
     backmapping_i, = np.where(counts_i != 0)
     backmapping_j, = np.where(counts_j != 0)
-    v_i = np.log(counts_i[backmapping_i]/N)
-    v_j = np.log(counts_j[backmapping_j]/N)
+    v_i = np.log(counts_i[backmapping_i]/N_i)
+    v_j = np.log(counts_j[backmapping_j]/N_j)
     A_i = len(backmapping_i)
     A_j = len(backmapping_j)
     return np.concatenate((v_i, v_j, np.zeros(A_i*A_j)))
@@ -243,8 +245,10 @@ def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, max_ls
 
 
 def get_parameter_length(msa, i, j):
-    A_i = len(np.unique(msa[:,i]))
-    A_j = len(np.unique(msa[:,j]))
+    counts_i = np.bincount(msa[:, i])[:A]
+    counts_j = np.bincount(msa[:, j])[:A]
+    A_i = np.sum(counts_i > 0)
+    A_j = np.sum(counts_j > 0)
     return A_i+A_j + A_i*A_j
 
 
@@ -254,8 +258,8 @@ def evaluate_felsenstein(x0, msa, i, j, tree, lam_w, vw=True):
 
 
 def reduced2long_params(x, msa, i, j):
-    counts_i = np.bincount(msa[:,i], minlength=A)
-    counts_j = np.bincount(msa[:,j], minlength=A)
+    counts_i = np.bincount(msa[:,i], minlength=A)[:A]
+    counts_j = np.bincount(msa[:,j], minlength=A)[:A]
     backmapping_i, = np.where(counts_i != 0)
     backmapping_j, = np.where(counts_j != 0)
 
