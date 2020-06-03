@@ -7,7 +7,15 @@ from datetime import datetime
 import numpy as np
 import ccmpred
 
-from tree_utils import create_binary_tree, read_newick_tree, create_seq_node_map, prune_tree
+from tree_utils import (
+    create_binary_tree,
+    read_newick_tree,
+    create_seq_node_map,
+    prune_tree,
+)
+
+import matplotlib as mpl
+mpl.use('AGG')
 
 np.random.seed(42)
 
@@ -77,6 +85,10 @@ def optimize_vw(msa, i, j, tree, lambda_w, factr, pgtol, max_ls_steps, max_tries
             if grad_norm_try < grad_norm:
                 best_v, best_w = ex.v_opt, ex.w_opt
             x0 = ex.last_x + np.random.normal(0, 1e-1, len(ex.last_x))
+
+    if n_tries == 0:
+        raise Exception(f'Optimization did not converge after {max_tries} tries.')
+
     info['total_fun_calls'] = n_fun_eval
     info['grad_norm'] = grad_norm
     info['n_tries'] = max_tries - n_tries
@@ -200,10 +212,21 @@ def main():
 
                 n_seqs = np.sum(~gap_mask)
 
+                if n_seqs > 0:
+                    pair_tree_seqnodemap = create_seq_node_map(pair_tree)
+                    seq_mapping = list(pair_tree_seqnodemap.keys())
+                    for new_seqid, seq_id in enumerate(seq_mapping):
+                        node = pair_tree_seqnodemap[seq_id]
+                        node.seq_id = new_seqid
+                    new_msa = np.ascontiguousarray(msa[seq_mapping][:, np.array([i, j])])
+                else:
+                    new_msa = None
+                mapped_i, mapped_j = 0, 1
+
                 job = pool.apply_async(
                     n_ijab_job,
                     args=(
-                        msa, i, j, pair_tree, n_seqs, lambda_w, factr, pgtol,
+                        new_msa, mapped_i, mapped_j, pair_tree, n_seqs, lambda_w, factr, pgtol,
                         args.lbfgs_maxls, n_tries, args.skip_n_calc, args.x_init
                         )
                     )
@@ -230,20 +253,20 @@ def main():
                 n_tries2 = info2['n_tries']
 
                 print(
-                    f'{finish_time} finished {num+1}/{len(jobs)} ',
+                    f'{finish_time} finished i={i}|j={j} {num+1}/{len(jobs)} ',
                     f'[fun_evals: {n_eval1}|{n_eval2},',
                     f' grad_norms: {grad_norm1:.2e}|{grad_norm2:.2e},',
                     f' n_tries: {n_tries1}|{n_tries2}, n_params: {n_params}, n_seqs: {n_seqs}]',
                     sep='', flush=True
                 )
             else:
-                 print(
-                    f'{finish_time} finished {num+1}/{len(jobs)} ',
+                print(
+                    f'{finish_time} finished i={i}|j={j} {num+1}/{len(jobs)} ',
                     f'[fun_evals: {n_eval1},',
                     f' grad_norms: {grad_norm1:.2e},',
                     f' n_tries: {n_tries1}, n_params: {n_params}, n_seqs: {n_seqs}]',
                     sep='', flush=True
-                 )
+                )
 
     L, L, A, A = n_full.shape
     for i in range(L):

@@ -1,9 +1,9 @@
+from math import exp
 cimport numpy as np
 import numpy as np
-from math import exp
 from libc.stdlib cimport malloc, free
 from scipy.optimize import fmin_l_bfgs_b
-ctypedef double c_float_t
+ctypedef np.float64_t c_float_t
 
 
 A = 20  # the alphabet is hard-coded to have 20 letters for now

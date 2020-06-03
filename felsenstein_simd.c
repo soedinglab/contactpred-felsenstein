@@ -8,6 +8,10 @@
 #include "simd_functions_pd.h"
 #endif
 
+#ifdef DEBUG_PRINT
+#include "debug_tools.h"
+#endif
+
 void initialize_leaf(Node* leaf, Constants* consts) {
 
   int A_j = consts->A_j;
@@ -407,6 +411,11 @@ void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffe
   int A_i_p_A_j_padded = consts->A_i_p_A_j_padded;
   int AA_ij_padded = consts->AA_ij_padded;
 
+  #ifdef DEBUG_NOSIMD
+  int A_i_p_A_j = consts->A_i_p_A_j;
+  int AA_ij = consts->AA_ij;
+  #endif
+
   NodePrecomputation *child_data = node->data;
   NodeBuffer* child_buffer = buffer;
 
@@ -625,6 +634,11 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   recurse_tree(root, consts, buf);
   c_float_t buffer_AA_fx[AA_ij];
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("root p_ab", consts->p_ab, AA_ij);
+  print_array_dbg_loc("root Ln_ab", root->data->Ln_ab, AA_ij);
+  #endif
+
   c_float_t fx = 0;
   for(int a = 0; a < A_i; a++) {
     for(int b = 0; b < A_j; b++) {
@@ -633,10 +647,13 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   }
   fx = logsumexpn(buffer_AA_fx, AA_ij);
 
+  #ifdef DEBUG_PRINT
+  printf("DBG: (fx) %g\n", fx);
+  #endif
+
   initialize_array(grad, c_f0, A_i_p_A_j + AA_ij);
   c_float_t buffer_2AA_grad[2 * AA_ij];
   c_float_t buffer_2AA_signs[2 * AA_ij];
-
 
   c_float_t (*dv_Ln_ab)[A_i_p_A_j_padded] = (c_float_t(*)[A_i_p_A_j_padded]) root->data->dv_Ln_ab;
   c_float_t (*dv_Ln_ab_signs)[A_i_p_A_j_padded] = (c_float_t(*)[A_i_p_A_j_padded]) root->data->dv_Ln_ab_signs;
@@ -651,6 +668,11 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
       buffer_2AA_grad[base_idx + 1] = root->data->Ln_ab[ab] + dv_p_ab[ab][lc];
       buffer_2AA_signs[base_idx + 1] = dv_p_ab_signs[ab][lc];
     }
+    #ifdef DEBUG_PRINT
+    print_array_dbg_loc("buffer_2AA_grad", buffer_2AA_grad, AA_ij);
+    print_array_dbg_loc("buffer_2AA_signs", buffer_2AA_signs, AA_ij);
+    #endif
+
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2 * AA_ij);
     grad[lc] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
@@ -672,6 +694,11 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2 * AA_ij);
     grad[A_i_p_A_j + cd] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
+
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("grad", grad, AA_ij + A_i_p_A_j);
+  #endif
+
   deinitialize_node(root);
   return fx * loge_2;
 }
@@ -688,6 +715,13 @@ void initialize_constants(Constants* consts) {
 
   int A_i_p_A_j_padded = simd_padded(consts->A_i_p_A_j);
   consts->A_i_p_A_j_padded = A_i_p_A_j_padded;
+
+  #ifdef DEBUG_PRINT
+  printf("DBG: (AA_ij) %d\n", consts->AA_ij);
+  printf("DBG: (A_i_p_A_j) %d\n", consts->A_i_p_A_j);
+  printf("DBG: (AA_ij_padded) %d\n", consts->AA_ij_padded);
+  printf("DBG: (A_i_p_A_j_padded) %d\n", consts->A_i_p_A_j_padded);
+  #endif
 
   consts->p_ab = (c_float_t*) malloc(sizeof(c_float_t) * AA_ij);
   consts->dv_p_ab = malloc_simd_farr(sizeof(c_float_t) * A_i_p_A_j_padded * AA_ij);
@@ -755,6 +789,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     p_ab[ab] -= normalization;
   }
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("p_ab", p_ab, AA_ij);
+  #endif
+
   c_float_t pi_a[A_i];
   for (int a = 0; a < A_i; a++) {
     pi_a[a] = logsumexpn(p_ab + a * A_j, A_j);
@@ -792,6 +830,11 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("dv_p_ab", dv_p_ab, A_i_p_A_j*AA_ij);
+  print_array_dbg_loc("dv_p_ab_signs", consts->dv_p_ab_signs, A_i_p_A_j*AA_ij);
+  #endif
+
 
   initialize_array(consts->dw_p_ab, log0, AA_ij * AA_ij_padded);
   initialize_array(consts->dw_p_ab_signs, c_f1, AA_ij * AA_ij_padded);
@@ -812,6 +855,11 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("dw_p_ab", dw_p_ab, AA_ij*AA_ij);
+  print_array_dbg_loc("dw_p_ab_signs", consts->dw_p_ab_signs, AA_ij*AA_ij);
+  #endif
+
   // p(a,.|.,b)
   c_float_t *p_ij_cond = consts->p_ij_cond;
   initialize_array(p_ij_cond, log0, AA_ij);
@@ -828,6 +876,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("p_ij_cond", p_ij_cond, AA_ij);
+  #endif
+
 
   initialize_array(consts->dv_p_ij_cond, log0, AA_ij * A_i_p_A_j_padded);
   initialize_array(consts->dv_p_ij_cond_signs, c_f1, AA_ij * A_i_p_A_j_padded);
@@ -843,6 +895,11 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       }
     }
   }
+
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("dv_p_ij_cond", dv_p_ij_cond, A_i_p_A_j*AA_ij);
+  print_array_dbg_loc("dv_p_ij_cond_signs", consts->dv_p_ij_cond_signs, A_i_p_A_j*AA_ij);
+  #endif
 
   initialize_array(consts->dw_p_ij_cond, log0, AA_ij * AA_ij_padded);
   initialize_array(consts->dw_p_ij_cond_signs, c_f1, AA_ij * AA_ij_padded);
@@ -861,6 +918,11 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("dw_p_ij_cond", dw_p_ij_cond, AA_ij*AA_ij);
+  print_array_dbg_loc("dw_p_ij_cond_signs", consts->dw_p_ij_cond_signs, AA_ij*AA_ij);
+  #endif
+
   // p(.,b|a,.)
   c_float_t *p_ji_cond = consts->p_ji_cond;
   initialize_array(p_ji_cond, log0, AA_ij);
@@ -876,6 +938,10 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
     }
   }
 
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("p_ji_cond", p_ji_cond, AA_ij);
+  #endif
+
   initialize_array(consts->dv_p_ji_cond, log0, AA_ij * A_i_p_A_j_padded);
   initialize_array(consts->dv_p_ji_cond_signs, c_f1, AA_ij * A_i_p_A_j_padded);
   c_float_t (*dv_p_ji_cond)[A_j][A_i_p_A_j_padded] = (c_float_t (*)[A_j][A_i_p_A_j_padded]) consts->dv_p_ji_cond;
@@ -890,6 +956,11 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       }
     }
   }
+
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("dv_p_ji_cond", dv_p_ji_cond, A_i_p_A_j*AA_ij);
+  print_array_dbg_loc("dv_p_ji_cond_signs", consts->dv_p_ji_cond_signs, A_i_p_A_j*AA_ij);
+  #endif
 
   c_float_t (*dw_p_ji_cond)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond;
   c_float_t (*dw_p_ji_cond_signs)[A_j][AA_ij_padded] = (c_float_t (*)[A_j][AA_ij_padded]) consts->dw_p_ji_cond_signs;
@@ -907,6 +978,11 @@ void precalculate_constants(Constants* consts, c_float_t* v, c_float_t* w) {
       }
     }
   }
+
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("dw_p_ji_cond", dw_p_ji_cond, AA_ij*AA_ij);
+  print_array_dbg_loc("dw_p_ji_cond_signs", consts->dw_p_ji_cond_signs, AA_ij*AA_ij);
+  #endif
 }
 
 void initialize_logexpbuffer(LogExpBuffer* buffer, Constants* consts, size_t length) {

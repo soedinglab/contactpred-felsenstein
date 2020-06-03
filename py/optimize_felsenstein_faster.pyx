@@ -1,10 +1,9 @@
-
+from math import exp
 cimport numpy as np
 import numpy as np
 from libc.stdlib cimport malloc, free
 from scipy.optimize import fmin_l_bfgs_b
 ctypedef np.float64_t c_float_t
-from math import exp
 
 cdef extern from "felsenstein_faster.c":
     pass
@@ -106,8 +105,8 @@ cdef class ExtraArguments:
         # we build a new msa with a reduced alphabet containing only the letters that are present
         # in the individual columns i and j.
         # e.g. a column containing [0, 3, 18] is mapped to an alphabet [0, 1, 2] with alphabet size 3.
-        counts_i = np.bincount(msa[:,i], minlength=A)
-        counts_j = np.bincount(msa[:,j], minlength=A)
+        counts_i = np.bincount(msa[:,i], minlength=A)[:A]
+        counts_j = np.bincount(msa[:,j], minlength=A)[:A]
         backmapping_i, = np.where(counts_i != 0)
         backmapping_j, = np.where(counts_j != 0)
         
@@ -173,10 +172,26 @@ cdef class ExtraArguments:
         free(self.buffer.right)
 
 
-def felsenstein_fx_grad(double[:] x, ExtraArguments extra_args):
+def initialize_v_ml_w_zero(msa, i, j):
+    N, L = msa.shape
+    epsilon = 1e-15
+    counts_i = np.bincount(msa[:, i], minlength=20)[:A]
+    N_i = np.sum(counts_i)
+    counts_j = np.bincount(msa[:, j], minlength=20)[:A]
+    N_j = np.sum(counts_j)
+    backmapping_i, = np.where(counts_i != 0)
+    backmapping_j, = np.where(counts_j != 0)
+    v_i = np.log(counts_i[backmapping_i]/N_i)
+    v_j = np.log(counts_j[backmapping_j]/N_j)
+    A_i = len(backmapping_i)
+    A_j = len(backmapping_j)
+    return np.concatenate((v_i, v_j, np.zeros(A_i*A_j)))
+
+
+def felsenstein_fx_grad(c_float_t[:] x, ExtraArguments extra_args):
     cdef Constants* consts = &extra_args.consts
-    AA_ij = extra_args.consts.AA_ij
-    A_i_p_A_j = extra_args.consts.A_i_p_A_j
+    cdef int AA_ij = extra_args.consts.AA_ij
+    cdef int A_i_p_A_j = extra_args.consts.A_i_p_A_j
     
     cdef Buffer* buffer = &extra_args.buffer
     cdef c_float_t lam = extra_args.lam
@@ -199,13 +214,13 @@ def felsenstein_fx_grad(double[:] x, ExtraArguments extra_args):
 
 class OptimizationFailure(Exception):
 
- def __init__(self, info_object, last_x, v, w):
-    msg = 'Unexpected optimization problem.'
-    super().__init__(msg)
-    self._info = info_object
-    self._last_x = last_x
-    self._v_opt = v
-    self._w_opt = w
+    def __init__(self, info_object, last_x, v, w):
+        msg = 'Unexpected optimization problem.'
+        super().__init__(msg)
+        self._info = info_object
+        self._last_x = last_x
+        self._v_opt = v
+        self._w_opt = w
 
     @property
     def info(self):
@@ -222,20 +237,6 @@ class OptimizationFailure(Exception):
     @property
     def w_opt(self):
         return self._w_opt
-
-
-def initialize_v_ml_w_zero(msa, i, j):
-    N, L = msa.shape
-    epsilon = 1e-15
-    counts_i = np.bincount(msa[:, i],minlength=20)
-    counts_j = np.bincount(msa[:, j],minlength=20)
-    backmapping_i, = np.where(counts_i != 0)
-    backmapping_j, = np.where(counts_j != 0)
-    v_i = np.log(counts_i[backmapping_i]/N)
-    v_j = np.log(counts_j[backmapping_j]/N)
-    A_i = len(backmapping_i)
-    A_j = len(backmapping_j)
-    return np.concatenate((v_i, v_j, np.zeros(A_i*A_j)))
 
 
 def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, max_ls_steps=20, x0='INIT_V'):
@@ -265,8 +266,10 @@ def optimize_felsenstein(msa, i, j, tree, lam_w=0, factr=1e7, pgtol=1e-5, max_ls
 
 
 def get_parameter_length(msa, i, j):
-    A_i = len(np.unique(msa[:,i]))
-    A_j = len(np.unique(msa[:,j]))
+    counts_i = np.bincount(msa[:, i])[:A]
+    counts_j = np.bincount(msa[:, j])[:A]
+    A_i = np.sum(counts_i > 0)
+    A_j = np.sum(counts_j > 0)
     return A_i+A_j + A_i*A_j
 
 
@@ -276,8 +279,8 @@ def evaluate_felsenstein(x0, msa, i, j, tree, lam_w, vw=True):
 
 
 def reduced2long_params(x, msa, i, j):
-    counts_i = np.bincount(msa[:,i], minlength=A)
-    counts_j = np.bincount(msa[:,j], minlength=A)
+    counts_i = np.bincount(msa[:,i], minlength=A)[:A]
+    counts_j = np.bincount(msa[:,j], minlength=A)[:A]
     backmapping_i, = np.where(counts_i != 0)
     backmapping_j, = np.where(counts_j != 0)
 

@@ -464,6 +464,10 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   }
   fx = logsumexpn(buffer_AA_fx, AA_ab);
 
+  #ifdef DEBUG_PRINT
+  printf("DBG: (fx) %g\n", fx);
+  #endif
+
   memset(grad, c_f0, (A_a_p_A_b + AA_ab)*sizeof(c_float_t));
   c_float_t buffer_2AA_grad[2*AA_ab];
   int8_t buffer_2AA_signs[2*AA_ab];
@@ -476,6 +480,10 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
       buffer_2AA_grad[base_idx + 1] = root->data->Ln_ab[ab] + consts->dv_p_ab[lc*AA_ab + ab];
       buffer_2AA_signs[base_idx + 1] = consts->dv_p_ab_signs[lc*AA_ab + ab];
     }
+    #ifdef DEBUG_PRINT
+    print_array_dbg_loc("buffer_2AA_grad", buffer_2AA_grad, AA_ab);
+    print_array_dbg_loc("buffer_2AA_signs", buffer_2AA_signs, AA_ab);
+    #endif
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
     grad[lc] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
@@ -490,6 +498,11 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
     SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
     grad[A_a_p_A_b + cd] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
   }
+
+  #ifdef DEBUG_PRINT
+  print_array_dbg_loc("grad", grad, AA_ab + A_a_p_A_b);
+  #endif
+
   deinitialize_node(root);
   return fx  * loge_2;
 }

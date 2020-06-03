@@ -31,6 +31,16 @@ static inline simdf64 simdf64_pow2(simdf64 x) {
    * Maximum deviation: 4.2e-9
    */
 
+  // mask out edge cases
+  // if x > DBL_MAX_EXP 2^x -> inf, if x < DBL_MIN_EXP 2^x -> 0
+  const simdf64 c_max_exp = simdf64_set(DBL_MAX_EXP);
+  const simdf64 c_min_exp = simdf64_set(DBL_MIN_EXP);
+  const simdf64 c_max = simdf64_set(INFINITY);
+  simdf64 c_max_mask = simdf64_cmp(x, c_max_exp, _CMP_GT_OS);
+  const simdf64 c_min = simdf64_set(0);
+  simdf64 c_min_mask = simdf64_cmp(x, c_min_exp, _CMP_LT_OS);
+
+
   const simdf64 c_1d = simdf64_set(1);
   const simdf64 c_1023 = simdf64_set(1023); // 1023 is the offset of the exponent in double representation
   const simdi64 c_mantissa_mask = simdi64_set(0xfffffffffffff); // the 52 bits of the double mantissa set to 1
@@ -69,14 +79,7 @@ static inline simdf64 simdf64_pow2(simdf64 x) {
   simdi64 shifted_exp = simdi64_slli(exp_i64, 52); // double mantissa has 52 bits
   x = (simdf64) simdi64_or(mantissa_long, shifted_exp); // join mantisse and exponent and obtain the final result 2^x
 
-  // mask out edge cases
-  // if x > DBL_MAX_EXP 2^x -> inf, if x < DBL_MIN_EXP 2^x -> 0
-  const simdf64 c_max_exp = simdf64_set(DBL_MAX_EXP);
-  const simdf64 c_min_exp = simdf64_set(DBL_MIN_EXP);
-  const simdf64 c_max = simdf64_set(INFINITY);
-  simdf64 c_max_mask = simdf64_cmp(x, c_max_exp, _CMP_GT_OS);
-  const simdf64 c_min = simdf64_set(0);
-  simdf64 c_min_mask = simdf64_cmp(x, c_min_exp, _CMP_LT_OS);
+
   x = simdf64_blendv(x, c_max, c_max_mask);
   x = simdf64_blendv(x, c_min, c_min_mask);
 

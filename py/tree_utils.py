@@ -1,4 +1,6 @@
 from Bio import Phylo
+from Bio.Phylo.BaseTree import Clade, Tree
+from ccmpred.io.alignment import AMINO_ACIDS
 
 import math
 import copy
@@ -260,3 +262,36 @@ def create_seq_node_map(tree):
         if node.has_right_child:
             queue.append(node.right_child)
     return seq_node_map
+
+
+def tree2biopython_helper(node, msa, i, j):
+    if node.parent.left_child == node:
+        branch_length = node.parent.left_branch_length
+    else:
+        branch_length = node.parent.right_branch_length
+
+    if node.is_leaf:
+        aa_i = AMINO_ACIDS[msa[node.seq_id, i]]
+        aa_j = AMINO_ACIDS[msa[node.seq_id, j]]
+        label = f'{aa_i}|{aa_j}'
+    else:
+        label = ''
+
+    clades = []
+    if node.has_left_child:
+        clades.append(tree2biopython_helper(node.left_child, msa, i, j))
+    if node.has_right_child:
+        clades.append(tree2biopython_helper(node.right_child, msa, i, j))
+
+    clade = Clade(branch_length=branch_length, name=label, clades=clades)
+    return clade
+
+
+def tree2biopython(tree, msa, i, j):
+    clades = []
+    if tree.has_left_child:
+        clades.append(tree2biopython_helper(tree.left_child, msa, i, j))
+    if tree.has_right_child:
+        clades.append(tree2biopython_helper(tree.right_child, msa, i, j))
+    clade = Clade(branch_length=0, name='root', clades=clades)
+    return Tree(clade)

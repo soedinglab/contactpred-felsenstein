@@ -22,6 +22,11 @@ typedef double c_float_t;
 
 #define N_COL 2
 
+#ifdef DEBUG_PRINT
+#include "debug_tools.h"
+#endif
+
+
 
 typedef struct SignedLogExp {
   int8_t sign;
@@ -252,31 +257,4 @@ void deinitialize_buffer(NodeBuffer*);
 
 c_float_t calculate_fx_grad(c_float_t* x, c_float_t* grad, Constants* consts, Buffer* buf);
 
-// DEBUG stuff
-#ifdef DEBUG_PRINT
-static inline void print_array_dbg(c_float_t* array, int N) {
-  printf("%s", "DBG: ");
-  for(int n = 0; n < N; n++) {
-    printf("%.9g ", array[n]);
-  }
-  printf("\n");
-}
-
-static inline void print_array_dbg_loc(char* string, c_float_t* array, int N) {
-  printf("%s (%s) ", "DBG:", string);
-  for(int n = 0; n < N; n++) {
-    printf("%.9g ", array[n]);
-  }
-  printf("\n");
-}
-
-static inline void print_array_dbg_loc_int8(char* string, int8_t* array, int N) {
-  printf("%s (%s) ", "DBG:", string);
-  for(int n = 0; n < N; n++) {
-    printf("%i ", array[n]);
-  }
-  printf("\n");
-}
-#endif
-
-#endif //FELSENSTEIN_FELSENSTEIN_LIN_H
+#endif //FELSENSTEIN_FASTER_H
