@@ -14,9 +14,6 @@ from tree_utils import (
     prune_tree,
 )
 
-import matplotlib as mpl
-mpl.use('AGG')
-
 np.random.seed(42)
 
 
