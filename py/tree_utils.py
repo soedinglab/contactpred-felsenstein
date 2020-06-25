@@ -247,7 +247,6 @@ def print_tree_sequences(tree, msa, i, j):
             queue.append(node.right_child)
 
 
-
 def create_seq_node_map(tree):
     seq_node_map = {}
     queue = [tree]

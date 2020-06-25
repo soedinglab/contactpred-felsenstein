@@ -3,6 +3,8 @@
 #include <math.h>
 #include <string.h>
 
+#include <stdio.h>
+
 
 void initialize_leaf(Node* leaf, Constants* consts) {
   
@@ -278,12 +280,14 @@ void initialize_node(Node* node, Constants* consts) {
 
 void deinitialize_node(Node* node) {
   NodePrecomputation* data = node->data;
-  free(data->Ln_ab);
-  free(data->dv_Ln_ab);
-  free(data->dv_Ln_ab_signs);
-  free(data->dw_Ln_ab);
-  free(data->dw_Ln_ab_signs);
-  free(node->data);
+  if (data != NULL) {
+    free(data->Ln_ab);
+    free(data->dv_Ln_ab);
+    free(data->dv_Ln_ab_signs);
+    free(data->dw_Ln_ab);
+    free(data->dw_Ln_ab_signs);
+    free(node->data);
+  }
 }
 
 void compute_Ln_branch(Node* node, c_float_t log_r, c_float_t log_1mr, NodeBuffer* buffer, Constants* consts, c_float_t* L_ab, c_float_t* dv_L_ab, int8_t* dv_L_ab_signs, c_float_t* dw_L_ab, int8_t* dw_L_ab_signs, int a, int b){
@@ -448,6 +452,8 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   precalculate_constants(consts, x, x + A_a_p_A_b);
   Node* root = consts->phylo_tree;
 
+
+  #ifndef UNROOTED
   recurse_tree(root, consts, buf);
   c_float_t buffer_AA_fx[AA_ab];
 
@@ -502,6 +508,174 @@ c_float_t calculate_fx_grad(c_float_t*x, c_float_t* grad, Constants* consts, Buf
   #ifdef DEBUG_PRINT
   print_array_dbg_loc("grad", grad, AA_ab + A_a_p_A_b);
   #endif
+
+  #else // UNROOTED
+  root->data = NULL;
+  recurse_tree(root->left, consts, buf);
+  // here we assume that the root is not a real node in the tree, instead there is a direct connection between the two
+  // children
+  recurse_tree(root->right, consts, buf);
+
+  NodePrecomputation* main_data = root->left->data;
+  NodePrecomputation* neighbor_data = root->right->data;
+
+  c_float_t buffer_AA_fx[AA_ab];
+  c_float_t buffer_AA_neighbor[AA_ab];
+  c_float_t fx = 0;
+
+  c_float_t r = exp(log(root->phi_left) + log(root->phi_right));
+  c_float_t log_r = log2(r);
+  c_float_t log_1mr = log2(1 - r);
+
+  c_float_t main_terms[AA_ab];
+  c_float_t neighbor_terms[AA_ab];
+  c_float_t* p_cdab_terms = malloc(AA_ab*AA_ab*sizeof(c_float_t));
+
+  for(int a = 0; a < A_a; a++) {
+    for(int b = 0; b < A_b; b++) {
+      int ab = a*A_b + b;
+      main_terms[ab] = main_data->Ln_ab[ab] + consts->p_ab[ab];
+
+      for(int c = 0; c < A_a; c++) {
+        for(int d = 0; d < A_b; d++) {
+          int cd = c*A_b + d;
+          c_float_t mut2 = 2*log_1mr + consts->p_ab[cd];
+          c_float_t mut1_bd = (b == d) ? consts->p_ij_cond[cd] : log0;
+          c_float_t mut1_ac = (a == c) ? consts->p_ji_cond[d*A_a + c] : log0;
+          c_float_t mut1 = logsumexp2(mut1_bd, mut1_ac) + log_r + log_1mr;
+          c_float_t mut0 = (a == c && b == d) ? 2*log_r : log0;
+          c_float_t p_cdab = logsumexp3(mut0, mut1, mut2);
+          p_cdab_terms[ab*AA_ab + cd] = p_cdab;
+          buffer_AA_neighbor[cd] = neighbor_data->Ln_ab[cd] + p_cdab;
+        }
+      }
+      c_float_t neighbor_term = logsumexpn(buffer_AA_neighbor, AA_ab);
+      neighbor_terms[ab] = neighbor_term;
+      buffer_AA_fx[ab] = main_terms[ab] + neighbor_term;
+    }
+  }
+  fx = logsumexpn(buffer_AA_fx, AA_ab);
+
+
+  memset(grad, c_f0, (A_a_p_A_b + AA_ab)*sizeof(c_float_t));
+  c_float_t buffer_2AA_grad[2*AA_ab];
+  int8_t buffer_2AA_signs[2*AA_ab];
+
+  c_float_t neighbor_term_buffer[2*AA_ab];
+  int8_t neighbor_term_buffer_signs[2*AA_ab];
+
+  for(int lc = 0; lc < A_a_p_A_b; lc++) {
+    for(int a = 0; a < A_a; a++) {
+      for(int b = 0; b < A_b; b++) {
+        int ab = a*A_b + b;
+
+        c_float_t left_sub1 = main_data->dv_Ln_ab[lc*AA_ab + ab] + consts->p_ab[ab];;
+        int8_t left_sub1_sign = main_data->dv_Ln_ab_signs[lc*AA_ab + ab];
+
+        c_float_t left_sub2 = main_data->Ln_ab[ab] + consts->dv_p_ab[lc*AA_ab + ab];
+        int8_t left_sub2_sign = consts->dv_p_ab_signs[lc*AA_ab + ab];
+
+        SignedLogExp result = signed_logsumexp2(left_sub1, left_sub1_sign, left_sub2, left_sub2_sign);
+        c_float_t left_term = result.result + neighbor_terms[ab];
+        int8_t left_term_sign = result.sign;
+
+        for(int c = 0; c < A_a; c++) {
+          for(int d = 0; d < A_b; d++) {
+            int cd = c*A_b + d;
+            neighbor_term_buffer[2*cd] = neighbor_data->dv_Ln_ab[lc*AA_ab + cd] + p_cdab_terms[ab*AA_ab + cd];
+            neighbor_term_buffer_signs[2*cd] = neighbor_data->dv_Ln_ab_signs[lc*AA_ab + cd];
+
+            // calculate log d/dv p(cd|ab, t)
+            c_float_t mut2 = 2*log_1mr + consts->dv_p_ab[lc*AA_ab + cd];
+            int8_t mut2_sign = consts->dv_p_ab_signs[lc*AA_ab + cd];
+            c_float_t mut1_bd = (b == d) ? consts->dv_p_ij_cond[lc*AA_ab + cd] : log0;
+            int8_t mut1_bd_sign = (b == d) ? consts->dv_p_ij_cond_signs[lc*AA_ab + cd] : 1;
+            c_float_t mut1_ac = (a == c) ? consts->dv_p_ji_cond[lc*AA_ab + d*A_a + c] : log0;
+            int8_t mut1_ac_sign = (a == c) ? consts->dv_p_ji_cond_signs[lc*AA_ab + d*A_a + c] : 1;
+            SignedLogExp mut1_result = signed_logsumexp2(mut1_bd, mut1_bd_sign, mut1_ac, mut1_ac_sign);
+            c_float_t mut1 = mut1_result.result + log_1mr + log_r;
+            int8_t mut1_sign = mut1_result.sign;
+
+            SignedLogExp ddv_p_cdab_result = signed_logsumexp2(mut1, mut1_sign, mut2, mut2_sign);
+
+            neighbor_term_buffer[2*cd + 1] = neighbor_data->Ln_ab[cd] + ddv_p_cdab_result.result;
+            neighbor_term_buffer_signs[2*cd + 1] = ddv_p_cdab_result.sign;
+          }
+        }
+        SignedLogExp term2_result = signed_logsumexp_n(neighbor_term_buffer, neighbor_term_buffer_signs, 2*AA_ab);
+        c_float_t right_term = main_terms[ab] + term2_result.result;
+        int8_t right_term_sign = term2_result.sign;
+
+        buffer_2AA_grad[2*ab] = left_term;
+        buffer_2AA_signs[2*ab] = left_term_sign;
+        buffer_2AA_grad[2*ab + 1] = right_term;
+        buffer_2AA_signs[2*ab + 1] = right_term_sign;
+      }
+    }
+
+    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
+    grad[lc] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
+  }
+
+  for(int ef = 0; ef < AA_ab; ef++) {
+    for(int a = 0; a < A_a; a++) {
+      for(int b = 0; b < A_b; b++) {
+        int ab = a*A_b + b;
+
+        c_float_t left_sub1 = main_data->dw_Ln_ab[ef*AA_ab + ab] + consts->p_ab[ab];;
+        int8_t left_sub1_sign = main_data->dw_Ln_ab_signs[ef*AA_ab + ab];
+
+        c_float_t left_sub2 = main_data->Ln_ab[ab] + consts->dw_p_ab[ef*AA_ab + ab];
+        int8_t left_sub2_sign = consts->dw_p_ab_signs[ef*AA_ab + ab];
+
+        SignedLogExp result = signed_logsumexp2(left_sub1, left_sub1_sign, left_sub2, left_sub2_sign);
+        c_float_t left_term = result.result + neighbor_terms[ab];
+        int8_t left_term_sign = result.sign;
+
+        for(int c = 0; c < A_a; c++) {
+          for(int d = 0; d < A_b; d++) {
+            int cd = c*A_b + d;
+            neighbor_term_buffer[2*cd] = neighbor_data->dw_Ln_ab[ef*AA_ab + cd] + p_cdab_terms[ab*AA_ab + cd];
+            neighbor_term_buffer_signs[2*cd] = neighbor_data->dw_Ln_ab_signs[ef*AA_ab + cd];
+
+            // calculate log d/dv p(cd|ab, t)
+            c_float_t mut2 = 2*log_1mr + consts->dw_p_ab[ef*AA_ab + cd];
+            int8_t mut2_sign = consts->dw_p_ab_signs[ef*AA_ab + cd];
+            c_float_t mut1_bd = (b == d) ? consts->dw_p_ij_cond[ef*AA_ab + cd] : log0;
+            int8_t mut1_bd_sign = (b == d) ? consts->dw_p_ij_cond_signs[ef*AA_ab + cd] : 1;
+            c_float_t mut1_ac = (a == c) ? consts->dw_p_ji_cond[ef*AA_ab + d*A_a + c] : log0;
+            int8_t mut1_ac_sign = (a == c) ? consts->dw_p_ji_cond_signs[ef*AA_ab + d*A_a + c] : 1;
+            SignedLogExp mut1_result = signed_logsumexp2(mut1_bd, mut1_bd_sign, mut1_ac, mut1_ac_sign);
+            c_float_t mut1 = mut1_result.result + log_1mr + log_r;
+            int8_t mut1_sign = mut1_result.sign;
+
+            SignedLogExp ddw_p_cdab_result = signed_logsumexp2(mut1, mut1_sign, mut2, mut2_sign);
+
+            neighbor_term_buffer[2*cd + 1] = neighbor_data->Ln_ab[cd] + ddw_p_cdab_result.result;
+            neighbor_term_buffer_signs[2*cd + 1] = ddw_p_cdab_result.sign;
+          }
+        }
+        SignedLogExp term2_result = signed_logsumexp_n(neighbor_term_buffer, neighbor_term_buffer_signs, 2*AA_ab);
+        c_float_t right_term = main_terms[ab] + term2_result.result;
+        int8_t right_term_sign = term2_result.sign;
+
+        buffer_2AA_grad[2*ab] = left_term;
+        buffer_2AA_signs[2*ab] = left_term_sign;
+        buffer_2AA_grad[2*ab + 1] = right_term;
+        buffer_2AA_signs[2*ab + 1] = right_term_sign;
+      }
+    }
+
+    SignedLogExp logsumexp_result = signed_logsumexp_n(buffer_2AA_grad, buffer_2AA_signs, 2*AA_ab);
+    grad[A_a_p_A_b + ef] = logsumexp_result.sign * pow(2, logsumexp_result.result - fx);
+  }
+
+  free(p_cdab_terms);
+
+
+  #endif
+
+
 
   deinitialize_node(root);
   return fx  * loge_2;

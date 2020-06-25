@@ -4,9 +4,9 @@ optimize_felsenstein_float_log2.c
 optimize_felsenstein_float_log2.*.so
 optimize_felsenstein_float_log2.html
 
-optimize_felsenstein_faster.c
-optimize_felsenstein_faster.*.so
-optimize_felsenstein_faster.html
+optimize_felsenstein_faster*.c
+optimize_felsenstein_faster*.*.so
+optimize_felsenstein_faster*.html
 
 optimize_felsenstein_faster_float.c
 optimize_felsenstein_faster_float.*.so

@@ -3,6 +3,7 @@ import math
 import sys
 from multiprocessing import Pool
 from datetime import datetime
+import importlib
 
 import numpy as np
 import ccmpred
@@ -20,6 +21,26 @@ np.random.seed(42)
 # hard coded alphabet size
 A = 20
 GAP_STATE = A
+
+IMPLEMENTATIONS = {
+    'SIMD': 'optimize_felsenstein_simd',
+    'RED_ALPH': 'optimize_felsenstein_faster',
+    'RED_ALPH_UNROOTED': 'optimize_felsenstein_faster_unrooted',
+}
+
+
+def check_implementations(implemenation_details):
+    available_implementations = []
+    for name, module_str in implemenation_details.items():
+        try:
+            importlib.import_module(module_str)
+            available_implementations.append(name)
+        except ImportError:
+            continue
+    return available_implementations
+
+
+AVAILABLE_IMPLEMENTATIONS = check_implementations(IMPLEMENTATIONS)
 
 
 def create_parser():
@@ -42,7 +63,7 @@ def create_parser():
     parser.add_argument('--w_ijab_prime_out')
     parser.add_argument('--v_ijab_out')
     parser.add_argument('--v_ijab_prime_out')
-    parser.add_argument('--fs-impl', choices=['SIMD', 'RED_ALPH'], default='SIMD')
+    parser.add_argument('--fs-impl', choices=AVAILABLE_IMPLEMENTATIONS, default='SIMD')
     parser.add_argument('--x-init', choices=['INIT_V', 'INIT_ZERO'], default='INIT_V')
     return parser
 
@@ -50,10 +71,8 @@ def create_parser():
 def pool_initializer(fs_impl):
     global optimize_felsenstein
     global OptimizationFailure
-    if fs_impl == 'SIMD':
-        import optimize_felsenstein_simd as fs
-    elif fs_impl == 'RED_ALPH':
-        import optimize_felsenstein_faster as fs
+    module_str = IMPLEMENTATIONS[fs_impl]
+    fs = importlib.import_module(module_str)
     optimize_felsenstein = fs.optimize_felsenstein
     OptimizationFailure = fs.OptimizationFailure
 

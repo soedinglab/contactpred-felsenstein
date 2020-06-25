@@ -65,6 +65,9 @@ target_link_libraries(felsenstein_faster_test_float m)
 
 add_executable(felsenstein_faster_test felsenstein_faster.c felsenstein_logtest_faster.c)
 target_compile_definitions(felsenstein_faster_test PUBLIC DOUBLE_PRECISION)
+if(${UNROOTED})
+    target_compile_definitions(felsenstein_faster_test PUBLIC UNROOTED)
+endif()
 target_link_libraries(felsenstein_faster_test m)
 
 add_executable(felsenstein_log_test16 felsenstein_lin.h felsenstein_logspace.c felsenstein_logtest16.c)
