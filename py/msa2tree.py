@@ -13,6 +13,7 @@ def create_parser():
     parser = argparse.ArgumentParser('msa2tree')
     parser.add_argument('msa_file')
     parser.add_argument('out_newick_tree')
+    parser.add_argument('--n-pseudo-counts', type=int, default=0)
     return parser
 
 
@@ -20,15 +21,16 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
     msa = ccmpred.io.read_msa_psicov(args.msa_file)
-    nw_tree = estimate_nj_tree(msa)
+    nw_tree = estimate_nj_tree(msa, args.n_pseudo_counts)
 
     with open(args.out_newick_tree, 'w') as out:
         Phylo.NewickIO.write([nw_tree], out)
 
 
-def estimate_nj_tree(msa):
+def estimate_nj_tree(msa, n_pseudo_counts):
 
     single_counts = ccmpred.counts.single_counts(msa)[:, :A]
+    single_counts += n_pseudo_counts
     p_ia = single_counts / single_counts.sum(axis=1)[:, None]
 
     N, _ = msa.shape
