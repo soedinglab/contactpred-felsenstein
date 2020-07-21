@@ -53,8 +53,13 @@ def main():
         N, L = msa.shape
         pair_counts = ccmpred.counts.pair_counts(msa)[:, :, :A, :A]
         no_gap_frac = pair_counts.sum(axis=(2, 3)) / N
-    n_ij = args.N * no_gap_frac
-   
+
+    if args.N <= 0:
+        N_scale = N
+    else:
+        N_scale = args.N
+    n_ij = N_scale * no_gap_frac
+
     n = np.zeros(w.shape)
     for i in range(L):
         for j in range(i+1, L):
