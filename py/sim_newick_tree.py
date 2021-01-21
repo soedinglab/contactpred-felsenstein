@@ -8,8 +8,6 @@ from scipy.stats import norm
 import numpy as np
 from Bio import Phylo
 from Bio.Phylo.Newick import Clade, Tree
-np.random.seed(42)
-random.seed(42)
 
 
 def create_parser():
@@ -17,6 +15,7 @@ def create_parser():
     parser.add_argument('N_leaves', type=int)
     parser.add_argument('--path-mu', type=float, default=1)
     parser.add_argument('--path-sd', type=float, default=0.2)
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('newick_tree')
     return parser
 
@@ -215,6 +214,10 @@ def tree2biopython(tree):
 def main():
     parser = create_parser()
     args = parser.parse_args()
+
+    
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
     depth = np.ceil(np.log2(args.N_leaves))
 
