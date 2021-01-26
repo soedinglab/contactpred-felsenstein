@@ -1,37 +1,34 @@
 __pycache__
 
+*.so
+
+
 optimize_felsenstein_float_log2.c
-optimize_felsenstein_float_log2.*.so
 optimize_felsenstein_float_log2.html
 
 optimize_felsenstein_faster*.c
-optimize_felsenstein_faster*.*.so
 optimize_felsenstein_faster*.html
 
 optimize_felsenstein_faster_float.c
-optimize_felsenstein_faster_float.*.so
 optimize_felsenstein_faster_float.html
 
 py/optimize_felsenstein_float_log2.c
-py/optimize_felsenstein_float_log2.*.so
 py/optimize_felsenstein_float_log2.html
 
 optimize_felsenstein_simd.c
-optimize_felsenstein_simd.*.so
 optimize_felsenstein_simd.html
 
 optimize_felsenstein_simd_float.c
-optimize_felsenstein_simd_float.*.so
 optimize_felsenstein_simd_float.html
 
 optimize_felsenstein_float.c
-optimize_felsenstein_float.*.so
 optimize_felsenstein_float.html
 
 optimize_felsenstein.c
-optimize_felsenstein.*.so
 optimize_felsenstein.html
 
 pam_distance.c
-pam_distance.*.so
 pam_distance.html
+
+utils.c
+utils.html
