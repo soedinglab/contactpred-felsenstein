@@ -106,65 +106,15 @@ class Node:
         self._right_branchlength = right_branchlength
 
 
-def prune_tree_helper(node):
-
-    has_left_child = node.left_child is not None
-    has_right_child = node.right_child is not None
-
-    if has_left_child:
-        prune_tree_helper(node.left_child)
-    if has_right_child:
-        prune_tree_helper(node.right_child)
-
-    has_left_child = node.left_child is not None
-    has_right_child = node.right_child is not None
-
-    parent = node.parent
-
-    if has_left_child ^ has_right_child:
-        if has_left_child:
-            child = node.left_child
-            branch_length = node.left_branch_length
-        else:
-            child = node.right_child
-            branch_length = node.right_branch_length
-
-        if parent.left_child == node:
-            parent.left_child = child
-            parent.left_branch_length = parent.left_branch_length + branch_length
-        else:
-            parent.right_child = child
-            parent.right_branch_length = parent.right_branch_length + branch_length
-        child.parent = node.parent
-
-    if not node.is_leaf and not (has_left_child or has_right_child):
-        node.deleted = True
-
-
-def prune_tree(node):
-    node = copy.deepcopy(node)
-    prune_tree_helper(node)
-
-    if node.left_child is None:
-        root = node.right_child
-    elif node.right_child is None:
-        root = node.left_child
-    else:
-        root = node
-    return root
-
-
-def create_binary_tree(n_leaves, bl_generator):
+def create_binary_tree(depth, bl_generator):
     last_layer = []
-    depth = math.ceil(math.log2(n_leaves)) + 1
-    for i in range(2**(depth - 1)):
+
+    for i in range(2**depth):
         leaf = Node()
         leaf.seq_id = i
-        if i >= n_leaves:
-            leaf.deleted = True
         last_layer.append(leaf)
 
-    for layer in range(depth - 2, -1, -1):
+    for layer in range(depth - 1, -1, -1):
         new_layer = []
         for i in range(2**layer):
             node = Node()
@@ -184,7 +134,7 @@ def create_binary_tree(n_leaves, bl_generator):
 
     root, = last_layer
     root.parent = root
-    return prune_tree(root)
+    return root
 
 
 def cladify(node, branch_length):
@@ -219,17 +169,17 @@ def main():
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    depth = np.ceil(np.log2(args.N_leaves))
+    depth = int(np.ceil(np.log2(args.N_leaves)))
 
     mu = args.path_mu / depth
     sd = args.path_sd / np.sqrt(depth)
 
     edge_length_distr = norm(mu, sd)
-    edge_lengths = edge_length_distr.rvs(min(2*args.N_leaves, int(1e6)))
+    edge_lengths = edge_length_distr.rvs(2**(depth+1))
     edge_lengths = np.maximum(edge_lengths, 1e-9)
 
     edge_gen = (el for el in edge_lengths)
-    bin_tree = create_binary_tree(args.N_leaves, edge_gen)
+    bin_tree = create_binary_tree(depth, edge_gen)
     nw_tree = tree2biopython(bin_tree)
 
     with open(args.newick_tree, 'w') as out:
